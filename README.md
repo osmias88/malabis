@@ -95,7 +95,9 @@ from being attempted.
 The repository includes `render.yaml`. In Render, create a **Blueprint**,
 connect `osmias88/malabis`, and enter `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
 `SUPABASE_SERVICE_ROLE_KEY` when prompted. Render builds the TypeScript app,
-starts the dashboard using its assigned port, and monitors `/api/health`.
+starts the dashboard using its assigned port, and monitors `/api/health`. The
+build explicitly includes TypeScript development dependencies even though the
+service runtime uses `NODE_ENV=production`.
 
 ## Price comparison
 
