@@ -20,7 +20,7 @@
     "probe": "tsx src/cli.ts probe",
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js serve"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

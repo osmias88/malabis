@@ -41,6 +41,9 @@ export function startServer(port: number, host = '127.0.0.1'): void {
 
 async function handle(url: URL, response: import('node:http').ServerResponse): Promise<void> {
   switch (url.pathname) {
+    case '/api/health':
+      return sendJson(response, 200, { ok: true });
+
     case '/api/brands':
       return sendJson(response, 200, {
         brands: BRANDS.map(({ key, name, family, market, baseUrl, currency, adapter, collections }) => ({

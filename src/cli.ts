@@ -175,11 +175,11 @@ program
 program
   .command('serve')
   .description('Start the dashboard for browsing scraped products')
-  .option('-p, --port <n>', 'port to listen on', (v) => Number.parseInt(v, 10), 5173)
+  .option('-p, --port <n>', 'port to listen on', (v) => Number.parseInt(v, 10), envPort())
   .addOption(logLevelOption)
   .action((options: { port: number; logLevel: string }) => {
     setLogLevel(options.logLevel as 'info');
-    startServer(options.port);
+    startServer(options.port, process.env.HOST ?? '127.0.0.1');
   });
 
 program
@@ -248,6 +248,11 @@ function requireBrand(): never {
 function requireUrl(url: string | undefined): string {
   if (!url) throw new Error('Provide --brand <key> or --url <url>');
   return url;
+}
+
+function envPort(): number {
+  const port = Number.parseInt(process.env.PORT ?? '5173', 10);
+  return Number.isFinite(port) ? port : 5173;
 }
 
 program.parseAsync(process.argv).catch((error: unknown) => {
