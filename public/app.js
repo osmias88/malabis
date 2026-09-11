@@ -57,6 +57,13 @@ async function loadBrands() {
     .join('');
 }
 
+async function loadCapabilities() {
+  const config = await getJson('/api/config');
+  for (const node of document.querySelectorAll('[data-live-only]')) {
+    node.hidden = !config.liveScraping;
+  }
+}
+
 async function loadRuns() {
   const { runs } = await getJson('/api/runs');
   dom.runFile.innerHTML =
@@ -246,6 +253,6 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') dom.drawer.hidden = true;
 });
 
-await loadBrands();
+await Promise.all([loadCapabilities(), loadBrands()]);
 await loadRuns();
-setStatus('Pick a brand and scrape live, or load a saved run.');
+setStatus('Pick a brand and load its latest cloud catalogue.');

@@ -15,6 +15,8 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
+      - key: ENABLE_LIVE_SCRAPING
+        value: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

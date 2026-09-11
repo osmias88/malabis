@@ -23,6 +23,8 @@ const MIME: Record<string, string> = {
 };
 
 const SAFE_RUN_FILE = /^[\w.-]+\.json$/;
+const liveScrapingEnabled =
+  process.env.ENABLE_LIVE_SCRAPING === 'true' || process.env.NODE_ENV !== 'production';
 
 export function startServer(port: number, host = '127.0.0.1'): void {
   const server = createServer((request, response) => {
@@ -44,6 +46,9 @@ async function handle(url: URL, response: import('node:http').ServerResponse): P
     case '/api/health':
       return sendJson(response, 200, { ok: true });
 
+    case '/api/config':
+      return sendJson(response, 200, { liveScraping: liveScrapingEnabled });
+
     case '/api/brands':
       return sendJson(response, 200, {
         brands: BRANDS.map(({ key, name, family, market, baseUrl, currency, adapter, collections }) => ({
@@ -59,12 +64,14 @@ async function handle(url: URL, response: import('node:http').ServerResponse): P
       });
 
     case '/api/scrape':
+      if (!liveScrapingEnabled) return sendJson(response, 404, { error: 'not found' });
       return scrape(url, response);
 
     case '/api/catalog':
       return catalog(url, response);
 
     case '/api/compare':
+      if (!liveScrapingEnabled) return sendJson(response, 404, { error: 'not found' });
       return compare(url, response);
 
     case '/api/runs':

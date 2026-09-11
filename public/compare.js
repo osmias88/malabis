@@ -162,5 +162,11 @@ dom.form.addEventListener('submit', async (event) => {
   }
 });
 
-await loadBrands();
-setStatus('Pick the market you buy in, then the markets you sell into.');
+const config = await getJson('/api/config');
+if (config.liveScraping) {
+  await loadBrands();
+  setStatus('Pick the market you buy in, then the markets you sell into.');
+} else {
+  dom.form.hidden = true;
+  setStatus('Live price comparison is unavailable on the public service.');
+}

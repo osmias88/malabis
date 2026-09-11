@@ -99,6 +99,10 @@ starts the dashboard using its assigned port, and monitors `/api/health`. The
 build explicitly includes TypeScript development dependencies even though the
 service runtime uses `NODE_ENV=production`.
 
+Public deployments disable `/api/scrape` and `/api/compare` by default and
+only expose the saved Supabase catalogue. Local development keeps live tools
+enabled. Set `ENABLE_LIVE_SCRAPING=true` only on a trusted deployment.
+
 ## Price comparison
 
 `compare` scrapes a baseline market, resolves the identical SKU in the other
