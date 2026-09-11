@@ -11,6 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "scrape": "tsx src/cli.ts scrape",
+    "ingest": "tsx src/cli.ts ingest",
+    "db:verify": "node scripts/verify-ingestion.mjs",
     "compare": "tsx src/cli.ts compare",
     "doctor": "tsx src/cli.ts doctor",
     "serve": "tsx src/cli.ts serve",
@@ -21,8 +23,11 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "cheerio": "^1.0.0",
     "commander": "^12.1.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0",
     "robots-parser": "^3.0.1",
     "undici": "^6.21.0",
     "zod": "^3.23.8"

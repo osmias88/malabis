@@ -139,6 +139,40 @@ program
   });
 
 program
+  .command('ingest')
+  .description('Scrape products and persist them to Supabase (one brand or every brand with --all)')
+  .option('-b, --brand <key>', 'brand key from the registry')
+  .option('-a, --all', 'ingest every registered brand', false)
+  .option('-l, --limit <n>', 'max products to ingest', (v) => Number.parseInt(v, 10), 25)
+  .option('-c, --concurrency <n>', 'parallel requests', (v) => Number.parseInt(v, 10), 4)
+  .option('--no-robots', 'skip robots.txt checks (development only)')
+  .addOption(logLevelOption)
+  .action(async (options: IngestOptions) => {
+    setLogLevel(options.logLevel as 'info');
+    if (options.all && options.brand) throw new Error('Use either --brand <key> or --all, not both.');
+    const brands = options.all ? BRANDS : [getBrand(options.brand ?? requireBrand())];
+    const { ingestBrand } = await import('./db/ingest.js');
+
+    for (const brand of brands) {
+      log.info(`ingesting ${brand.name} (limit ${options.limit})`);
+      try {
+        const summary = await ingestBrand(brand, {
+          limit: options.limit,
+          concurrency: options.concurrency,
+          respectRobots: options.robots,
+        });
+        log.info(`saved ${summary.products} products and ${summary.variants} variants`, {
+          brand: summary.brandKey,
+          runId: summary.runId,
+        });
+      } catch (error) {
+        log.error(`brand "${brand.key}" failed`, { error: String(error) });
+        process.exitCode = 1;
+      }
+    }
+  });
+
+program
   .command('serve')
   .description('Start the dashboard for browsing scraped products')
   .option('-p, --port <n>', 'port to listen on', (v) => Number.parseInt(v, 10), 5173)
@@ -186,6 +220,15 @@ interface CompareOptions {
   out: string;
   format: string;
   dryRun: boolean;
+  logLevel: string;
+}
+
+interface IngestOptions {
+  brand?: string;
+  all: boolean;
+  limit: number;
+  concurrency: number;
+  robots: boolean;
   logLevel: string;
 }
 

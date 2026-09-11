@@ -1,0 +1,69 @@
+name: Refresh product catalog
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      brand:
+        description: Brand to ingest
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - sapphire-pk
+          - generation-pk
+          - cambridge-pk
+          - j-pk
+      limit:
+        description: Maximum products per brand
+        required: true
+        default: '25'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    environment: malabis
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      INGEST_BRAND: ${{ inputs.brand || 'all' }}
+      INGEST_LIMIT: ${{ inputs.limit || '25' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate code
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Ingest catalog
+        shell: bash
+        run: |
+          if [ "$INGEST_BRAND" = "all" ]; then
+            npm run ingest -- --all --limit "$INGEST_LIMIT"
+          else
+            npm run ingest -- --brand "$INGEST_BRAND" --limit "$INGEST_LIMIT"
+          fi

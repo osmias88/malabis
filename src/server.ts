@@ -58,6 +58,9 @@ async function handle(url: URL, response: import('node:http').ServerResponse): P
     case '/api/scrape':
       return scrape(url, response);
 
+    case '/api/catalog':
+      return catalog(url, response);
+
     case '/api/compare':
       return compare(url, response);
 
@@ -82,6 +85,16 @@ async function scrape(url: URL, response: import('node:http').ServerResponse): P
   log.info(`scraping ${brand.name} for dashboard`, { limit });
   const result = await scrapeBrand(brand, { limit, concurrency: 4 });
   sendJson(response, 200, result);
+}
+
+async function catalog(url: URL, response: import('node:http').ServerResponse): Promise<void> {
+  const brandKey = url.searchParams.get('brand');
+  if (!brandKey) return sendJson(response, 400, { error: 'brand query parameter is required' });
+
+  getBrand(brandKey);
+  const limit = clamp(Number.parseInt(url.searchParams.get('limit') ?? '60', 10), 1, 100);
+  const { getCatalog } = await import('./db/catalog.js');
+  sendJson(response, 200, await getCatalog(brandKey, limit));
 }
 
 async function compare(url: URL, response: import('node:http').ServerResponse): Promise<void> {

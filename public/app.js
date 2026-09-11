@@ -10,6 +10,7 @@ const dom = {
   brand: el('brand'),
   limit: el('limit'),
   run: el('run'),
+  loadCloud: el('load-cloud'),
   runFile: el('run-file'),
   status: el('status'),
   stats: el('stats'),
@@ -199,6 +200,23 @@ dom.form.addEventListener('submit', async (event) => {
     setStatus(error.message, true);
   } finally {
     dom.run.disabled = false;
+  }
+});
+
+dom.loadCloud.addEventListener('click', async () => {
+  const brand = dom.brand.value;
+  const limit = dom.limit.value;
+
+  dom.loadCloud.disabled = true;
+  setStatus(`Loading the latest saved ${brand} catalogue…`);
+  try {
+    const result = await getJson(`/api/catalog?brand=${encodeURIComponent(brand)}&limit=${limit}`);
+    showResult(result);
+    setStatus(`Loaded ${result.stats.productsParsed} products from Supabase.`);
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    dom.loadCloud.disabled = false;
   }
 });
 

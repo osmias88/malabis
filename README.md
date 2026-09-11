@@ -59,8 +59,11 @@ npm run serve                                     # dashboard on http://127.0.0.
 npm run doctor                                    # egress IP + geo-redirect check
 npm run brands                                    # list registry
 npm run probe -- --brand sapphire-pk              # which adapter matches
-npm run scrape -- --brand khaadi-pk --limit 10    # scrape + write ./output
+npm run scrape -- --brand cambridge-pk --limit 10 # scrape + write ./output
 npm run scrape -- --all --limit 5 --dry-run
+npm run ingest -- --brand cambridge-pk --limit 10 # scrape + upsert to Supabase
+npm run ingest -- --all --limit 10                # ingest every active brand
+npm run db:verify -- cambridge-pk                  # verify latest DB run and row counts
 npm run compare -- --base khaadi-us --targets khaadi-uk --limit 10
 npm run dev -- product https://<store>/.../<product>.html
 npm test
@@ -68,6 +71,24 @@ npm test
 
 Useful flags: `--concurrency`, `--format json,csv`, `--out <dir>`,
 `--log-level debug`, `--no-robots` (development only).
+
+## Scheduled ingestion
+
+`.github/workflows/ingest.yml` refreshes every active brand daily at 02:30 UTC.
+It can also be started manually from **GitHub → Actions → Refresh product
+catalog → Run workflow**, where a brand and product limit can be selected.
+
+Add these secrets to the GitHub environment named `malabis` under **GitHub →
+Settings → Environments → malabis → Environment secrets** before running the
+workflow:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+The scheduled run ingests up to 25 products per brand. Scrape failures are
+recorded in `scrape_runs`, and a failing brand does not prevent later brands
+from being attempted.
 
 ## Price comparison
 
