@@ -3,82 +3,73 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Malabis — Scraper Dashboard</title>
+    <meta name="description" content="Discover Pakistani fashion from leading labels, curated by Malabis in Eden Prairie." />
+    <title>Malabis — Pakistani Fashion, Curated</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">
-        <span class="logo">M</span>
-        <div>
-          <h1>Malabis</h1>
-          <p>Multi-brand scraper — proof of concept</p>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <a href="/" class="current">Catalogue</a>
-        <a href="/compare.html" data-live-only>Price gap</a>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="Malabis home"><span class="mark">M</span><span>MALABIS</span></a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a class="current" href="#catalogue">Shop</a>
+        <a href="#catalogue" data-new-link>New arrivals</a>
+        <a href="#about">Our edit</a>
       </nav>
-
-      <form id="controls" class="controls">
-        <label>
-          Brand
-          <select id="brand" name="brand"></select>
-        </label>
-        <label>
-          Products
-          <input id="limit" name="limit" type="number" min="1" max="60" value="12" />
-        </label>
-        <button id="run" type="submit" data-live-only>Scrape live</button>
-        <button id="load-cloud" class="secondary" type="button">Load cloud</button>
-        <label class="runs">
-          Saved run
-          <select id="run-file"><option value="">—</option></select>
-        </label>
-      </form>
+      <a class="location" href="https://www.facebook.com/profile.php?id=61593876778105" target="_blank" rel="noreferrer noopener">Eden Prairie, MN</a>
     </header>
 
-    <section id="status" class="status" hidden></section>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">The Pakistani fashion edit</p>
+          <h1 id="page-title">Style from home,<br />found closer.</h1>
+        </div>
+        <div class="intro-copy">
+          <p>Explore current collections from Pakistan’s most-loved labels, gathered in one considered edit for our community.</p>
+          <a href="#catalogue">Browse the collection <span aria-hidden="true">↓</span></a>
+        </div>
+      </section>
 
-    <section id="stats" class="stats" hidden>
-      <article><span id="stat-products">0</span><small>products</small></article>
-      <article><span id="stat-variants">0</span><small>variants</small></article>
-      <article><span id="stat-instock">0</span><small>fully in stock</small></article>
-      <article><span id="stat-partial">0</span><small>partial</small></article>
-      <article><span id="stat-oos">0</span><small>sold out</small></article>
-      <article><span id="stat-requests">0</span><small>requests</small></article>
-      <article><span id="stat-duration">0s</span><small>duration</small></article>
-      <article><span id="stat-adapter">—</span><small>adapter</small></article>
-    </section>
+      <section id="catalogue" class="catalogue" aria-labelledby="catalogue-title">
+        <div class="catalogue-heading">
+          <div><p class="eyebrow">Fresh from the labels</p><h2 id="catalogue-title">The latest edit</h2></div>
+          <p id="updated" class="updated">Updating the collection…</p>
+        </div>
 
-    <section id="filters" class="filters" hidden>
-      <input id="search" type="search" placeholder="Filter by title, size or colour…" />
-      <select id="stock">
-        <option value="all">All stock states</option>
-        <option value="in_stock">In stock</option>
-        <option value="partially_in_stock">Partially in stock</option>
-        <option value="out_of_stock">Sold out</option>
-      </select>
-      <select id="sort">
-        <option value="default">Scrape order</option>
-        <option value="price-asc">Price: low to high</option>
-        <option value="price-desc">Price: high to low</option>
-        <option value="title">Title A–Z</option>
-      </select>
-      <span id="result-count" class="result-count"></span>
-    </section>
+        <div class="filter-bar" aria-label="Product filters">
+          <label class="search-field"><span>Search</span><input id="search" type="search" placeholder="Kurta, lawn, menswear…" autocomplete="off" /></label>
+          <label><span>Label</span><select id="brand"><option value="all">All labels</option></select></label>
+          <label><span>Category</span><select id="category"><option value="all">All categories</option></select></label>
+          <label><span>Size</span><select id="size"><option value="all">All sizes</option></select></label>
+          <label><span>Sort</span><select id="sort"><option value="newest">Newest first</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="title">Name: A–Z</option></select></label>
+          <label class="stock-toggle"><input id="in-stock" type="checkbox" /><span>In stock only</span></label>
+        </div>
 
-    <main id="grid" class="grid"></main>
+        <div class="results-line"><p id="result-count" aria-live="polite">Loading pieces…</p><button id="clear" class="text-button" type="button">Clear filters</button></div>
+        <div id="status" class="notice" aria-live="polite">Gathering the latest collection…</div>
+        <div id="grid" class="product-grid" aria-busy="true"></div>
+      </section>
+
+      <section id="about" class="about">
+        <p class="eyebrow">Malabis · Eden Prairie</p>
+        <div><h2>A thoughtful window into Pakistani style.</h2><p>Malabis brings leading labels into one easy place to discover. Availability and pricing come directly from each brand’s latest catalogue.</p></div>
+        <a href="https://www.facebook.com/profile.php?id=61593876778105" target="_blank" rel="noreferrer noopener">Follow Malabis on Facebook ↗</a>
+      </section>
+    </main>
+
+    <footer>
+      <a class="wordmark footer-mark" href="/"><span class="mark">M</span><span>MALABIS</span></a>
+      <p>Pakistani fashion, curated in Eden Prairie.</p>
+      <p>Prices and availability may change on the label’s website.</p>
+    </footer>
 
     <div id="drawer" class="drawer" hidden>
-      <div class="drawer-panel" role="dialog" aria-modal="true">
-        <button id="drawer-close" class="drawer-close" aria-label="Close">×</button>
+      <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+        <button id="drawer-close" class="drawer-close" type="button" aria-label="Close product details">×</button>
         <div id="drawer-body"></div>
       </div>
     </div>
-
     <script type="module" src="/app.js"></script>
   </body>
 </html>

@@ -98,11 +98,10 @@ async function scrape(url: URL, response: import('node:http').ServerResponse): P
 }
 
 async function catalog(url: URL, response: import('node:http').ServerResponse): Promise<void> {
-  const brandKey = url.searchParams.get('brand');
-  if (!brandKey) return sendJson(response, 400, { error: 'brand query parameter is required' });
+  const brandKey = url.searchParams.get('brand') ?? undefined;
 
-  getBrand(brandKey);
-  const limit = clamp(Number.parseInt(url.searchParams.get('limit') ?? '60', 10), 1, 100);
+  if (brandKey) getBrand(brandKey);
+  const limit = clamp(Number.parseInt(url.searchParams.get('limit') ?? '100', 10), 1, 100);
   const { getCatalog } = await import('./db/catalog.js');
   sendJson(response, 200, await getCatalog(brandKey, limit));
 }

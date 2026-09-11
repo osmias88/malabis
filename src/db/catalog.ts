@@ -1,8 +1,8 @@
 import type { Product, ScrapeResult } from '../core/types.js';
 import { supabaseAdmin } from './supabase.js';
 
-export async function getCatalog(brandKey: string, limit: number): Promise<ScrapeResult> {
-  const { data, error } = await supabaseAdmin
+export async function getCatalog(brandKey: string | undefined, limit: number): Promise<ScrapeResult> {
+  let query = supabaseAdmin
     .from('products')
     .select(`
       external_id, handle, title, description, url, product_type, vendor,
@@ -10,9 +10,11 @@ export async function getCatalog(brandKey: string, limit: number): Promise<Scrap
       brands!inner(key, name),
       variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
     `)
-    .eq('brands.key', brandKey)
     .order('scraped_at', { ascending: false })
     .limit(limit);
+
+  if (brandKey) query = query.eq('brands.key', brandKey);
+  const { data, error } = await query;
 
   if (error) throw new Error(`Could not load catalog: ${error.message}`);
 
@@ -20,7 +22,7 @@ export async function getCatalog(brandKey: string, limit: number): Promise<Scrap
   return {
     products,
     stats: {
-      brandKey,
+      brandKey: brandKey ?? 'all',
       adapter: 'supabase',
       requests: 0,
       productsFound: products.length,
