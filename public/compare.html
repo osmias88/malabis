@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Malabis — Market Price Comparison</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">M</span>
+        <div>
+          <h1>Market price comparison</h1>
+          <p>Same SKU, different market storefronts</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/">Catalogue</a>
+        <a href="/compare.html" class="current">Price gap</a>
+      </nav>
+
+      <form id="controls" class="controls">
+        <label>
+          Buy from
+          <select id="base"></select>
+        </label>
+        <label>
+          Compare with
+          <select id="targets" multiple size="3"></select>
+        </label>
+        <label>
+          Products
+          <input id="limit" type="number" min="1" max="30" value="8" />
+        </label>
+        <label>
+          Report in
+          <select id="currency">
+            <option>USD</option>
+            <option>GBP</option>
+            <option>PKR</option>
+            <option>EUR</option>
+            <option>AED</option>
+          </select>
+        </label>
+        <button id="run" type="submit">Compare</button>
+      </form>
+    </header>
+
+    <section id="status" class="status" hidden></section>
+    <section id="warnings" class="warnings" hidden></section>
+
+    <section id="summary" class="stats" hidden></section>
+
+    <main id="table-wrap" class="table-wrap" hidden>
+      <table class="compare">
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </main>
+
+    <script type="module" src="/compare.js"></script>
+  </body>
+</html>

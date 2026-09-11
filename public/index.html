@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Malabis — Scraper Dashboard</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">M</span>
+        <div>
+          <h1>Malabis</h1>
+          <p>Multi-brand scraper — proof of concept</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/" class="current">Catalogue</a>
+        <a href="/compare.html">Price gap</a>
+      </nav>
+
+      <form id="controls" class="controls">
+        <label>
+          Brand
+          <select id="brand" name="brand"></select>
+        </label>
+        <label>
+          Products
+          <input id="limit" name="limit" type="number" min="1" max="60" value="12" />
+        </label>
+        <button id="run" type="submit">Scrape live</button>
+        <label class="runs">
+          Saved run
+          <select id="run-file"><option value="">—</option></select>
+        </label>
+      </form>
+    </header>
+
+    <section id="status" class="status" hidden></section>
+
+    <section id="stats" class="stats" hidden>
+      <article><span id="stat-products">0</span><small>products</small></article>
+      <article><span id="stat-variants">0</span><small>variants</small></article>
+      <article><span id="stat-instock">0</span><small>fully in stock</small></article>
+      <article><span id="stat-partial">0</span><small>partial</small></article>
+      <article><span id="stat-oos">0</span><small>sold out</small></article>
+      <article><span id="stat-requests">0</span><small>requests</small></article>
+      <article><span id="stat-duration">0s</span><small>duration</small></article>
+      <article><span id="stat-adapter">—</span><small>adapter</small></article>
+    </section>
+
+    <section id="filters" class="filters" hidden>
+      <input id="search" type="search" placeholder="Filter by title, size or colour…" />
+      <select id="stock">
+        <option value="all">All stock states</option>
+        <option value="in_stock">In stock</option>
+        <option value="partially_in_stock">Partially in stock</option>
+        <option value="out_of_stock">Sold out</option>
+      </select>
+      <select id="sort">
+        <option value="default">Scrape order</option>
+        <option value="price-asc">Price: low to high</option>
+        <option value="price-desc">Price: high to low</option>
+        <option value="title">Title A–Z</option>
+      </select>
+      <span id="result-count" class="result-count"></span>
+    </section>
+
+    <main id="grid" class="grid"></main>
+
+    <div id="drawer" class="drawer" hidden>
+      <div class="drawer-panel" role="dialog" aria-modal="true">
+        <button id="drawer-close" class="drawer-close" aria-label="Close">×</button>
+        <div id="drawer-body"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

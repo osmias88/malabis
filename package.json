@@ -1,0 +1,35 @@
+{
+  "name": "malabis-scraper-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Proof-of-concept scraper for Pakistani clothing brand e-commerce sites (products, variants, pricing, stock).",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "scrape": "tsx src/cli.ts scrape",
+    "compare": "tsx src/cli.ts compare",
+    "doctor": "tsx src/cli.ts doctor",
+    "serve": "tsx src/cli.ts serve",
+    "brands": "tsx src/cli.ts brands",
+    "probe": "tsx src/cli.ts probe",
+    "test": "tsx --test src/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "commander": "^12.1.0",
+    "robots-parser": "^3.0.1",
+    "undici": "^6.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
