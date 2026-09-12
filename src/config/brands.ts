@@ -6,7 +6,7 @@ import type { BrandConfig } from '../adapters/types.js';
  *
  * Platforms verified against the live storefronts:
  *   Khaadi, Sapphire  → Salesforce Commerce Cloud (Demandware)
- *   Generation, Afrozeh → Shopify
+ *   Ethnic, Afrozeh   → Shopify
  *
  * Khaadi runs one storefront per market and the same product path resolves in
  * all of them, which is what makes `compare` possible. `pk.khaadi.com`
@@ -32,15 +32,15 @@ export const BRANDS: BrandConfig[] = [
     },
   },
   {
-    key: 'generation-pk',
-    name: 'Generation PK',
-    family: 'generation',
+    key: 'ethnic-pk',
+    name: 'Ethnic PK',
+    family: 'ethnic',
     market: 'PK',
-    baseUrl: 'https://generation.com.pk',
+    baseUrl: 'https://pk.ethnc.com',
     currency: 'PKR',
     adapter: 'shopify',
     collections: ['/collections/all'],
-    options: { hydrateVariants: false, perHostDelayMs: 700 },
+    options: { hydrateVariants: true, perHostDelayMs: 700 },
   },
   {
     key: 'cambridge-pk',

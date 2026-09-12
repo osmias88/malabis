@@ -9,7 +9,7 @@ from Pakistani clothing brand storefronts, ahead of the PostgreSQL + frontend bu
 | --- | --- | --- | --- |
 | Khaadi | pk / us / uk .khaadi.com | Salesforce Commerce Cloud | Category listings + PDP HTML |
 | Sapphire | pk.sapphireonline.pk | Salesforce Commerce Cloud | Category listing + product sitemap + PDP HTML |
-| Generation | generation.com.pk | Shopify | `/products.json`, `/products/<handle>.js` |
+| Ethnic | pk.ethnc.com | Shopify | `/products.json`, `/products/<handle>.js` |
 
 Khaadi and Sapphire are **not** Shopify — they run SFCC, whose `robots.txt`
 disallows the internal `/on/demandware.store/` controllers (and, on Sapphire,

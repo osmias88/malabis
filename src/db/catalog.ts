@@ -1,5 +1,6 @@
 import type { Product, ScrapeResult } from '../core/types.js';
 import { createConverter, type Converter } from '../compare/fx.js';
+import { BRANDS } from '../config/brands.js';
 import { supabaseAdmin } from './supabase.js';
 
 export interface CatalogResult extends ScrapeResult {
@@ -28,6 +29,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
     .limit(limit);
 
   if (brandKey) query = query.eq('brands.key', brandKey);
+  else query = query.in('brands.key', BRANDS.map((brand) => brand.key));
   const { data, error } = await query;
 
   if (error) throw new Error(`Could not load catalog: ${error.message}`);
