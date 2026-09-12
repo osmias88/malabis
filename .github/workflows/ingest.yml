@@ -15,7 +15,7 @@ on:
           - sapphire-pk
           - ethnic-pk
           - cambridge-pk
-          - j-pk
+          - sana-safinaz-pk
           - afrozeh-pk
       limit:
         description: Maximum products per brand
