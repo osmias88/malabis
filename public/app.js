@@ -14,7 +14,7 @@ const state = {
 
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
-  sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
+  sort: el('sort'), clear: el('clear'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), heroReel: el('hero-reel'),
   sizeReference: el('size-reference'), drawer: el('drawer'), drawerBody: el('drawer-body'),
   account: el('account-button'), authModal: el('auth-modal'), authForm: el('auth-form'),
@@ -29,8 +29,12 @@ const dom = {
   breadcrumbSubSep: el('breadcrumb-sub-separator'),
   subcategoryBar: el('subcategory-bar'),
   subcategoryPills: el('subcategory-pills'),
-  filterSection: el('filter-section'),
-  resultsHeader: el('results-header'),
+  browsingBar: el('browsing-bar'),
+  filterMenuBtn: el('filter-menu-btn'),
+  filterDrawer: el('filter-drawer'),
+  filterDrawerClose: el('filter-drawer-close'),
+  applyFiltersBtn: el('apply-filters-btn'),
+  filterBadge: el('filter-badge'),
   catalogueEyebrow: el('catalogue-eyebrow'),
   catalogueTitle: el('catalogue-title'),
 };
@@ -374,30 +378,29 @@ function renderSizeReference(products) {
 
 function render() {
   const term = dom.search.value.trim().toLowerCase();
-  const isHomepageView = state.department === 'all' && state.subCategory === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked;
+  const isHomepageView = state.department === 'all' && state.subCategory === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all';
 
   updateAudienceTabs();
   updateNavLinks();
+  updateFilterBadge();
 
   if (isHomepageView) {
     dom.catalogueEyebrow.textContent = 'Explore the Collections';
     dom.catalogueTitle.textContent = 'Shop by Category';
     dom.breadcrumbs.hidden = true;
     dom.subcategoryBar.hidden = true;
-    dom.filterSection.hidden = true;
+    dom.browsingBar.hidden = true;
     dom.sizeReference.hidden = true;
-    dom.resultsHeader.hidden = true;
     dom.grid.hidden = true;
     renderCategoryTiles();
     dom.categoryTiles.hidden = false;
     return;
   }
 
-  // Browsing Mode: Vertical Grid Layout
+  // Browsing Mode: Clean vertical grid with menu-accessible filters
   dom.categoryTiles.hidden = true;
   dom.breadcrumbs.hidden = false;
-  dom.filterSection.hidden = false;
-  dom.resultsHeader.hidden = false;
+  dom.browsingBar.hidden = false;
   dom.grid.hidden = false;
 
   renderBreadcrumbs();
@@ -420,11 +423,10 @@ function render() {
       }
     }
 
-    // Dropdown filters
+    // Drawer filters
     if (dom.brand.value !== 'all' && product.brandKey !== dom.brand.value) return false;
     if (dom.category.value !== 'all' && customerCategory(product) !== dom.category.value) return false;
     if (dom.size.value !== 'all' && !product.variants.some((variant) => variant.size === dom.size.value)) return false;
-    if (dom.inStock.checked && !product.variants.some((variant) => variant.available)) return false;
 
     // Text search
     if (!term) return true;
@@ -455,6 +457,34 @@ function render() {
     card.addEventListener('click', () => openDetail(card.dataset.key));
     card.addEventListener('keydown', (event) => { if (event.key === 'Enter') openDetail(card.dataset.key); });
   }
+}
+
+function updateFilterBadge() {
+  let activeFilters = 0;
+  if (dom.brand.value !== 'all') activeFilters += 1;
+  if (dom.category.value !== 'all') activeFilters += 1;
+  if (dom.size.value !== 'all') activeFilters += 1;
+  if (dom.sort.value !== 'recommended') activeFilters += 1;
+  if (dom.search.value.trim()) activeFilters += 1;
+
+  if (activeFilters > 0) {
+    dom.filterBadge.hidden = false;
+    dom.filterBadge.textContent = String(activeFilters);
+  } else {
+    dom.filterBadge.hidden = true;
+  }
+}
+
+function openFilterDrawer() {
+  dom.filterDrawer.hidden = false;
+  document.body.classList.add('drawer-open');
+  dom.filterMenuBtn.setAttribute('aria-expanded', 'true');
+}
+
+function closeFilterDrawer() {
+  dom.filterDrawer.hidden = true;
+  document.body.classList.remove('drawer-open');
+  dom.filterMenuBtn.setAttribute('aria-expanded', 'false');
 }
 
 function renderCategoryTiles() {
@@ -657,6 +687,7 @@ function openDetail(key) {
 }
 
 function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
+
 function clearFilters() {
   state.department = 'all';
   state.subCategory = 'all';
@@ -665,10 +696,11 @@ function clearFilters() {
   dom.category.value = 'all';
   dom.size.value = 'all';
   dom.sort.value = 'recommended';
-  dom.inStock.checked = false;
   updateDependentFilters();
   render();
+  closeFilterDrawer();
 }
+
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }
@@ -685,7 +717,7 @@ function escape(value) { return String(value ?? '').replace(/[&<>"']/g, (charact
 
 dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.size.value = 'all'; updateDependentFilters(); render(); });
 dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
-for (const control of [dom.search, dom.size, dom.sort, dom.inStock]) control.addEventListener('input', render);
+for (const control of [dom.search, dom.size, dom.sort]) control.addEventListener('input', render);
 
 function updateAudienceTabs() {
   for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
@@ -746,6 +778,11 @@ dom.breadcrumbDept.addEventListener('click', () => {
   render();
 });
 
+dom.filterMenuBtn.addEventListener('click', openFilterDrawer);
+dom.filterDrawerClose.addEventListener('click', closeFilterDrawer);
+dom.applyFiltersBtn.addEventListener('click', closeFilterDrawer);
+dom.filterDrawer.addEventListener('click', (event) => { if (event.target === dom.filterDrawer) closeFilterDrawer(); });
+
 dom.clear.addEventListener('click', clearFilters);
 dom.account.addEventListener('click', openAuth);
 dom.authClose.addEventListener('click', closeAuth);
@@ -755,21 +792,14 @@ dom.authMode.addEventListener('click', () => setAuthMode(state.authMode === 'log
 dom.googleAuth.addEventListener('click', signInWithGoogle);
 el('drawer-close').addEventListener('click', closeDetail);
 dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDetail(); });
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeDetail();
+    closeFilterDrawer();
+    closeAuth();
+  }
+});
 
-await loadAuth();
-updateAudienceTabs();
-await loadCatalogue();
-dom.account.addEventListener('click', openAuth);
-dom.authClose.addEventListener('click', closeAuth);
-dom.authModal.addEventListener('click', (event) => { if (event.target === dom.authModal) closeAuth(); });
-dom.authForm.addEventListener('submit', submitAuth);
-dom.authMode.addEventListener('click', () => setAuthMode(state.authMode === 'login' ? 'register' : 'login'));
-dom.googleAuth.addEventListener('click', signInWithGoogle);
-el('drawer-close').addEventListener('click', closeDetail);
-dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDetail(); });
-document.querySelector('[data-new-link]').addEventListener('click', () => { dom.sort.value = 'newest'; render(); });
 await loadAuth();
 updateAudienceTabs();
 await loadCatalogue();

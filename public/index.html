@@ -10,13 +10,12 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="wordmark" href="/" aria-label="Malabis home"><span class="mark">M</span><span>MALABIS</span></a>
+      <a class="wordmark" href="/" aria-label="Malabis home">MALABIS</a>
       <nav class="site-nav" aria-label="Primary navigation">
         <a class="current" href="#catalogue" data-nav-dept="all">All Categories</a>
         <a href="#catalogue" data-nav-dept="women">Women</a>
         <a href="#catalogue" data-nav-dept="men">Men</a>
         <a href="#catalogue" data-nav-dept="kids">Kids</a>
-        <a href="#about">Our Collection</a>
       </nav>
       <div class="header-actions">
         <span class="location">We ship across the United States</span>
@@ -25,16 +24,8 @@
     </header>
 
     <main>
-      <section class="intro" aria-labelledby="page-title">
+      <section class="intro" aria-label="Featured showcase">
         <div id="hero-reel" class="hero-reel" aria-hidden="true"></div>
-        <div class="intro-title">
-          <p class="eyebrow">The Pakistani fashion collection</p>
-          <h1 id="page-title">Style from home,<br />found closer.</h1>
-        </div>
-        <div class="intro-copy">
-          <p>Explore current collections from Pakistan’s most-loved brands, gathered in one curated selection for shoppers across the U.S.</p>
-          <a href="#catalogue">Browse the collection <span aria-hidden="true">↓</span></a>
-        </div>
       </section>
 
       <section id="catalogue" class="catalogue" aria-labelledby="catalogue-title">
@@ -68,47 +59,109 @@
         <!-- Featured Category Picture Cards (Cambridge / Sapphire layout) -->
         <div id="category-tiles" class="category-tiles" aria-label="Category showcase"></div>
 
-        <div id="filter-section" class="filter-section" hidden>
-          <div class="filter-bar" aria-label="Product filters">
-            <label class="search-field"><span>Search</span><input id="search" type="search" placeholder="Kurta, lawn, menswear…" autocomplete="off" /></label>
-            <label><span>Brand</span><select id="brand"><option value="all">All brands</option></select></label>
-            <label><span>Category</span><select id="category"><option value="all">All categories</option></select></label>
-            <label><span>Size</span><select id="size"><option value="all">All sizes</option></select></label>
-            <label><span>Sort</span><select id="sort"><option value="recommended">Recommended</option><option value="newest">Newest first</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="title">Name: A–Z</option></select></label>
-            <label class="stock-toggle"><input id="in-stock" type="checkbox" /><span>In stock only</span></label>
+        <!-- Browsing utility bar with Hamburger Filter Button -->
+        <div id="browsing-bar" class="browsing-bar" hidden>
+          <p id="result-count" class="result-count" aria-live="polite">Loading available pieces…</p>
+          <div class="browsing-actions">
+            <button id="filter-menu-btn" class="filter-menu-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
+              <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span>Filter & Sort</span>
+              <span id="filter-badge" class="filter-badge" hidden>0</span>
+            </button>
           </div>
-        </div>
-
-        <aside id="size-reference" class="size-reference" hidden aria-live="polite"></aside>
-
-        <div id="results-header" class="results-line" hidden>
-          <p id="result-count" aria-live="polite">Loading available pieces…</p>
-          <button id="clear" class="text-button" type="button">Reset filters</button>
         </div>
 
         <div id="status" class="notice" aria-live="polite">Gathering the latest collection…</div>
         <div id="grid" class="product-grid" aria-busy="true" hidden></div>
       </section>
-
-      <section id="about" class="about">
-        <p class="eyebrow">Malabis · United States</p>
-        <div><h2>A thoughtful window into Pakistani style.</h2><p>Malabis brings leading brands into one easy place for customers across the country to discover. Availability and pricing come directly from each brand’s latest catalogue.</p></div>
-        <span class="about-note">Pakistani fashion, curated for the U.S.</span>
-      </section>
     </main>
 
     <footer>
-      <a class="wordmark footer-mark" href="/"><span class="mark">M</span><span>MALABIS</span></a>
-      <p>Pakistani fashion, curated for the U.S.</p>
-      <p>Prices and availability may change on the brand’s website.</p>
+      <a class="wordmark footer-mark" href="/">MALABIS</a>
+      <p>Prices and availability are synchronized directly with brand storefronts.</p>
     </footer>
 
+    <!-- Filter & Sort Drawer Menu -->
+    <div id="filter-drawer" class="drawer filter-drawer-modal" hidden>
+      <div class="filter-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="filter-drawer-title">
+        <div class="filter-drawer-header">
+          <div class="filter-drawer-heading">
+            <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+            <h3 id="filter-drawer-title">Filter & Sort</h3>
+          </div>
+          <button id="filter-drawer-close" class="drawer-close" type="button" aria-label="Close filters">×</button>
+        </div>
+
+        <div class="filter-drawer-body">
+          <label class="filter-drawer-field">
+            <span>Search pieces</span>
+            <input id="search" type="search" placeholder="Kurta, lawn, embroidered…" autocomplete="off" />
+          </label>
+
+          <label class="filter-drawer-field">
+            <span>Brand</span>
+            <select id="brand"><option value="all">All brands</option></select>
+          </label>
+
+          <label class="filter-drawer-field">
+            <span>Category</span>
+            <select id="category"><option value="all">All categories</option></select>
+          </label>
+
+          <label class="filter-drawer-field">
+            <span>Size</span>
+            <select id="size"><option value="all">All sizes</option></select>
+          </label>
+
+          <label class="filter-drawer-field">
+            <span>Sort by</span>
+            <select id="sort">
+              <option value="recommended">Recommended</option>
+              <option value="newest">Newest first</option>
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+              <option value="title">Name: A–Z</option>
+            </select>
+          </label>
+
+          <aside id="size-reference" class="size-reference" hidden aria-live="polite"></aside>
+        </div>
+
+        <div class="filter-drawer-footer">
+          <button id="clear" class="text-button" type="button">Reset filters</button>
+          <button id="apply-filters-btn" class="shop-link" type="button">View Results</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Details Drawer -->
     <div id="drawer" class="drawer" hidden>
       <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
         <button id="drawer-close" class="drawer-close" type="button" aria-label="Close product details">×</button>
         <div id="drawer-body"></div>
       </div>
     </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="auth-modal" hidden>
+      <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button id="auth-close" class="drawer-close" type="button" aria-label="Close account dialog">×</button>
+        <p class="eyebrow">Your Malabis account</p>
+        <h2 id="auth-title">Sign in to save your finds.</h2>
+        <p id="auth-message" class="auth-message">Create an account to keep your cart and checkout details together.</p>
+        <form id="auth-form" class="auth-form">
+          <label><span>Email</span><input id="auth-email" type="email" autocomplete="email" required /></label>
+          <label><span>Password</span><input id="auth-password" type="password" minlength="6" autocomplete="current-password" required /></label>
+          <button id="auth-submit" class="shop-link" type="submit">Sign in</button>
+        </form>
+        <button id="google-auth" class="google-button" type="button">Continue with Google</button>
+        <button id="auth-mode" class="auth-switch" type="button">Need an account? Register</button>
+      </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
 
     <div id="auth-modal" class="auth-modal" hidden>
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
