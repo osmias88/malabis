@@ -350,6 +350,7 @@ function customerCategory(product) {
 }
 
 function productAudience(product) {
+  if (product.brandKey === 'cambridge-pk') return 'men';
   const text = [product.title, product.productType, ...product.tags].filter(Boolean).join(' ').toLowerCase();
   if (/\bboy|boys/.test(text)) return 'boys';
   if (/\bgirl|girls/.test(text)) return 'girls';
