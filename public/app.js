@@ -7,7 +7,7 @@ const dom = {
   sizeReference: el('size-reference'), drawer: el('drawer'), drawerBody: el('drawer-body'),
 };
 
-const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited sizes', out_of_stock: 'Sold out', unknown: 'Check availability' };
+const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited availability', out_of_stock: 'Sold out', unknown: 'Check availability' };
 const money = (value) => new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: value.currency,
@@ -153,12 +153,23 @@ function productCard(product) {
   const image = product.images[0]?.url;
   const discounted = product.variants.find((variant) => variant.compareAtPrice);
   const sizes = unique(product.variants.filter((variant) => variant.available).map((variant) => variant.size).filter(Boolean));
+  const availability = availabilitySummary(product);
   const price = product.priceMin.amount === product.priceMax.amount ? money(product.priceMin) : `From ${money(product.priceMin)}`;
   return `<article class="product-card" tabindex="0" data-key="${escape(productKey(product))}">
     <figure>${image ? `<img loading="lazy" src="${escape(image)}" alt="${escape(product.title)}" />` : '<span class="image-fallback">M</span>'}<span class="stock-label ${escape(product.stockStatus)}">${STOCK_LABEL[product.stockStatus]}</span></figure>
     <div class="product-info"><p class="product-brand">${escape(cleanBrand(product.brandName))}</p><h3>${escape(product.title)}</h3>
     <div class="product-price"><span>${price}</span>${discounted ? `<del>${money(discounted.compareAtPrice)}</del>` : ''}</div>
-    <p class="available-sizes">${sizes.length ? `Sizes ${sizes.slice(0, 6).map(escape).join(' · ')}` : 'View availability'}</p></div></article>`;
+    <p class="available-sizes">${availability || (sizes.length ? `Available: ${sizes.slice(0, 6).map(escape).join(' · ')}` : 'View availability')}</p></div></article>`;
+}
+
+function availabilitySummary(product) {
+  if (product.stockStatus !== 'partially_in_stock') return '';
+  const available = product.variants.filter((variant) => variant.available).map((variant) => variant.size ?? variant.title);
+  const unavailable = product.variants.filter((variant) => !variant.available).map((variant) => variant.size ?? variant.title);
+  const parts = [];
+  if (available.length) parts.push(`Available: ${available.slice(0, 3).map(escape).join(' · ')}`);
+  if (unavailable.length) parts.push(`Sold out: ${unavailable.slice(0, 2).map(escape).join(' · ')}`);
+  return parts.join(' · ');
 }
 
 function openDetail(key) {
