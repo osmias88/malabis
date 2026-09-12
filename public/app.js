@@ -227,13 +227,55 @@ function render() {
   if (dom.sort.value === 'newest') products = [...products].sort((a, b) => b.scrapedAt.localeCompare(a.scrapedAt));
 
   const scope = dom.brand.value === 'all' ? 'across all brands' : `from ${cleanBrand(state.brands.find((brand) => brand.key === dom.brand.value)?.name ?? 'this brand')}`;
-    dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
-  dom.grid.innerHTML = products.length ? products.map(productCard).join('') : '<div class="empty"><strong>No pieces found</strong><span>Try changing a filter or search term.</span></div>';
+  const isHomepage = !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked && dom.sort.value === 'recommended';
+  dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
+  dom.grid.classList.toggle('category-showcase', isHomepage);
+  dom.grid.innerHTML = isHomepage ? categoryShowcase(products) : productGrid(products);
   for (const card of dom.grid.querySelectorAll('.product-card')) {
     card.addEventListener('click', () => openDetail(card.dataset.key));
     card.addEventListener('keydown', (event) => { if (event.key === 'Enter') openDetail(card.dataset.key); });
   }
 }
+
+function productGrid(products) {
+  return products.length
+    ? products.map(productCard).join('')
+    : '<div class="empty"><strong>No pieces found</strong><span>Try changing a filter or search term.</span></div>';
+}
+
+function categoryShowcase(products) {
+  const groups = new Map();
+  for (const product of products) {
+    const category = customerCategory(product);
+    if (!groups.has(category)) groups.set(category, []);
+    groups.get(category).push(product);
+  }
+
+  const sections = [...groups.entries()]
+    .filter(([, items]) => items.length >= 3)
+    .sort((left, right) => right[1].length - left[1].length)
+    .slice(0, 7)
+    .map(([category, items]) => `
+      <section class="category-section" aria-labelledby="category-${slugify(category)}">
+        <div class="category-heading"><h3 id="category-${slugify(category)}">${escape(category)}</h3><span>Top ${Math.min(12, items.length)}</span></div>
+        <div class="category-grid">${items.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
+      </section>`);
+
+  return sections.length ? sections.join('') : productGrid(products);
+}
+
+function customerCategory(product) {
+  const text = [product.productType, product.title, ...product.tags].filter(Boolean).join(' ').toLowerCase();
+  if (/fragrance|perfume|body spray|deodorant/.test(text)) return 'Fragrances';
+  if (/footwear|shoe|pump|sandal|chappal|loafer/.test(text)) return 'Footwear';
+  if (/accessor|bag|jewell|jewellery|scarf|dupatta/.test(text)) return 'Accessories';
+  if (/western|trouser|blazer|jeans|top|shirt|shorts/.test(text)) return 'Western';
+  if (/festive|bridal|formal|wedding/.test(text)) return 'Festive';
+  if (/lawn|pret|fusion|eastern|stitched|unstitched|kameez|kurta|shalwar/.test(text)) return 'Eastern wear';
+  return 'More to discover';
+}
+
+function slugify(value) { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-'); }
 
 function productCard(product) {
   const image = product.images[0]?.url;
