@@ -4,7 +4,7 @@ const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), heroReel: el('hero-reel'),
-  drawer: el('drawer'), drawerBody: el('drawer-body'),
+  sizeReference: el('size-reference'), drawer: el('drawer'), drawerBody: el('drawer-body'),
 };
 
 const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited sizes', out_of_stock: 'Sold out', unknown: 'Check availability' };
@@ -56,10 +56,7 @@ function renderHeroReel() {
 
 function hydrateFilters() {
   dom.brand.insertAdjacentHTML('beforeend', state.brands.map((brand) => `<option value="${escape(brand.key)}">${escape(cleanBrand(brand.name))}</option>`).join(''));
-  const categories = unique(state.products.map((product) => product.productType).filter(Boolean));
-  dom.category.insertAdjacentHTML('beforeend', categories.map((category) => `<option value="${escape(category)}">${escape(category)}</option>`).join(''));
-  const sizes = unique(state.products.flatMap((product) => product.variants.map((variant) => variant.size).filter(Boolean))).sort(sizeSort);
-  dom.size.insertAdjacentHTML('beforeend', sizes.map((size) => `<option value="${escape(size)}">${escape(size)}</option>`).join(''));
+  updateDependentFilters();
   const latest = Math.max(...state.products.map((product) => Date.parse(product.scrapedAt)));
   const catalogDate = Number.isFinite(latest)
     ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)
@@ -68,6 +65,64 @@ function hydrateFilters() {
     ? ` · USD rate ${state.fx.source === 'live' ? 'live' : 'estimated'} at PKR ${state.fx.pkrPerUsd.toFixed(2)}`
     : '';
   dom.updated.textContent = `Catalogue updated ${catalogDate}${rate}`;
+}
+
+function updateDependentFilters() {
+  if (dom.brand.value === 'all') {
+    dom.category.innerHTML = '<option value="all">Choose label first</option>';
+    dom.category.disabled = true;
+    dom.size.innerHTML = '<option value="all">Choose label first</option>';
+    dom.size.disabled = true;
+    dom.sizeReference.hidden = true;
+    return;
+  }
+
+  const brandProducts = dom.brand.value === 'all'
+    ? state.products
+    : state.products.filter((product) => product.brandKey === dom.brand.value);
+  const categories = unique(brandProducts.map((product) => product.productType).filter(Boolean)).sort();
+  replaceOptions(dom.category, 'All categories', categories);
+
+  const categoryRequired = dom.brand.value !== 'all' && categories.length > 1 && dom.category.value === 'all';
+  const categoryProducts = dom.category.value === 'all'
+    ? brandProducts
+    : brandProducts.filter((product) => product.productType === dom.category.value);
+  const sizes = unique(categoryProducts.flatMap((product) => product.variants.map((variant) => variant.size).filter(isUsefulSize))).sort(sizeSort);
+  if (categoryRequired) {
+    dom.size.innerHTML = '<option value="all">Choose category first</option>';
+    dom.size.disabled = true;
+  } else {
+    replaceOptions(dom.size, 'All sizes', sizes);
+  }
+  renderSizeReference(categoryProducts, categoryRequired);
+}
+
+function replaceOptions(select, allLabel, values) {
+  const selected = select.value;
+  select.innerHTML = `<option value="all">${allLabel}</option>` + values.map((value) => `<option value="${escape(value)}">${escape(value)}</option>`).join('');
+  select.value = values.includes(selected) ? selected : 'all';
+  select.disabled = values.length === 0;
+}
+
+function renderSizeReference(products, categoryRequired) {
+  if (dom.brand.value === 'all') {
+    dom.sizeReference.hidden = true;
+    return;
+  }
+
+  const brand = state.brands.find((item) => item.key === dom.brand.value);
+  const referenceProduct = products.find((product) => product.variants.some((variant) => variant.size && variant.size !== 'Default')) ?? products[0];
+  const sizes = unique(products.flatMap((product) => product.variants.map((variant) => variant.size).filter(isUsefulSize))).sort(sizeSort);
+  if (!brand || !referenceProduct) {
+    dom.sizeReference.hidden = true;
+    return;
+  }
+
+  dom.sizeReference.innerHTML = `
+    <div><span>Official size reference</span><strong>${escape(cleanBrand(brand.name))}</strong></div>
+    <p>${categoryRequired ? 'Choose a category to see its relevant size system.' : sizes.length ? `Sizes currently listed: ${sizes.map(escape).join(' · ')}` : 'This category does not use clothing sizes.'}</p>
+    <a href="${escape(referenceProduct.url)}" target="_blank" rel="noreferrer noopener">Open official sizing on ${escape(cleanBrand(brand.name))} ↗</a>`;
+  dom.sizeReference.hidden = false;
 }
 
 function render() {
@@ -113,16 +168,19 @@ function openDetail(key) {
   dom.drawerBody.innerHTML = `<div class="detail-layout"><div class="detail-gallery">${product.images.slice(0, 4).map((image) => `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" />`).join('')}</div>
     <div class="detail-copy"><p class="eyebrow">${escape(cleanBrand(product.brandName))}</p><h2 id="drawer-title">${escape(product.title)}</h2><p class="detail-price">${money(product.priceMin)}</p>
     ${product.description ? `<p class="description">${escape(product.description.slice(0, 600))}</p>` : ''}<div class="variant-list">${variants}</div>
-    <a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a><p class="detail-note">Purchases are completed on the label’s website.</p></div></div>`;
+    <div class="detail-actions"><a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a><a class="size-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">Open official product sizing ↗</a></div><p class="detail-note">Purchases and official sizing details are provided on the label’s product page.</p></div></div>`;
   dom.drawer.hidden = false;
   document.body.classList.add('drawer-open');
 }
 
 function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
-function clearFilters() { dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'newest'; dom.inStock.checked = false; render(); }
+function clearFilters() { dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'newest'; dom.inStock.checked = false; updateDependentFilters(); render(); }
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }
+function isUsefulSize(size) {
+  return Boolean(size) && size !== 'Default' && !/(?:\bML\b|METERS?|\bPIECE\b)/i.test(size);
+}
 function sizeSort(left, right) {
   const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'ONE SIZE', 'UNSTITCHED'];
   const leftIndex = order.indexOf(left); const rightIndex = order.indexOf(right);
@@ -131,7 +189,9 @@ function sizeSort(left, right) {
 }
 function escape(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`); }
 
-for (const control of [dom.search, dom.brand, dom.category, dom.size, dom.sort, dom.inStock]) control.addEventListener('input', render);
+dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.size.value = 'all'; updateDependentFilters(); render(); });
+dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
+for (const control of [dom.search, dom.size, dom.sort, dom.inStock]) control.addEventListener('input', render);
 dom.clear.addEventListener('click', clearFilters);
 el('drawer-close').addEventListener('click', closeDetail);
 dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
