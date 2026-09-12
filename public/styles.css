@@ -78,7 +78,7 @@ button,input,select { font:inherit; }
 .about .eyebrow { color:#f2c64b; }
 .about h2 { max-width:650px; }
 .about div p { max-width:600px; color:rgba(255,255,255,.72); font-size:16px; }
-.about>a { align-self:end; justify-self:end; text-underline-offset:5px; }
+.about-note { align-self:end; justify-self:end; color:rgba(255,255,255,.72); font-size:12px; }
 footer { padding:30px clamp(20px,4vw,64px); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; background:var(--ink); color:rgba(255,255,255,.55); font-size:11px; }
 footer p { margin:0; }
 footer p:last-child { text-align:right; }
@@ -117,7 +117,7 @@ footer p:last-child { text-align:right; }
   .intro{min-height:460px;grid-template-columns:1fr;gap:20px;align-content:end;padding:46px 20px 30px}.intro::after{background:linear-gradient(180deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.12) 36%,rgba(255,255,255,.72) 58%,rgba(255,255,255,.96) 78%,var(--white) 100%)}.intro-title,.intro-copy{width:fit-content;max-width:100%;padding:9px 11px;background:rgba(255,255,255,.76);box-decoration-break:clone}.intro h1{font-size:clamp(43px,13vw,60px)}.intro-copy p{margin-bottom:14px;font-size:14px}.hero-scene figcaption{display:none}.hero-scene img{object-position:center 18%;filter:saturate(1.03) contrast(1.06)}
   .catalogue{padding:48px 16px 70px}.catalogue-heading{align-items:start;flex-direction:column;gap:10px}.filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-bar .search-field,.filter-bar .stock-toggle{grid-column:1/-1}.size-reference{grid-template-columns:1fr;gap:6px}.size-reference p{white-space:normal}.size-reference a{width:fit-content}
   .product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 10px}.product-card h3{font-size:15px}.stock-label{left:6px;bottom:6px;font-size:9px}
-  .about{grid-template-columns:1fr;padding:54px 20px}.about>a{grid-column:1;justify-self:start}footer{grid-template-columns:1fr}footer p:last-child{text-align:left}
+  .about{grid-template-columns:1fr;padding:54px 20px}.about-note{justify-self:start}footer{grid-template-columns:1fr}footer p:last-child{text-align:left}
   .drawer{padding:0;place-items:stretch}.drawer-panel{width:100%;max-height:100vh}.detail-layout{grid-template-columns:1fr}.detail-gallery{grid-template-columns:repeat(2,1fr)}.detail-copy{padding:36px 20px}
 }
 @media(prefers-reduced-motion:reduce) { .hero-scene,.hero-scene img{animation:none}.hero-scene:first-child{opacity:1} }

@@ -148,10 +148,7 @@ function hydrateFilters() {
   const catalogDate = Number.isFinite(latest)
     ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)
     : 'recently';
-  const rate = state.fx
-    ? ` · USD rate ${state.fx.source === 'live' ? 'live' : 'estimated'} at PKR ${state.fx.pkrPerUsd.toFixed(2)}`
-    : '';
-  dom.updated.textContent = `Catalogue updated ${catalogDate}${rate}`;
+  dom.updated.textContent = `Catalogue updated ${catalogDate}`;
 }
 
 function updateDependentFilters() {
