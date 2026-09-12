@@ -1,7 +1,11 @@
 import type { BrandConfig } from '../adapters/types.js';
+import { createLogger } from '../core/logger.js';
 import { scrapeBrand, type RunOptions } from '../core/pipeline.js';
 import { StockStatus, type Product, type ScrapeResult } from '../core/types.js';
 import { supabaseAdmin } from './supabase.js';
+import { retryTransient } from './retry.js';
+
+const log = createLogger('db');
 
 interface IngestSummary {
   runId: string;
@@ -29,38 +33,43 @@ export async function ingestBrand(
       variants: result.stats.variants,
     };
   } catch (error) {
-    await supabaseAdmin
-      .from('scrape_runs')
-      .update({
-        status: 'failed',
-        finished_at: new Date().toISOString(),
-        error: error instanceof Error ? error.message : String(error),
-      })
-      .eq('id', runId);
+    await retryDatabase(async () => {
+      const { error: updateError } = await supabaseAdmin
+        .from('scrape_runs')
+        .update({
+          status: 'failed',
+          finished_at: new Date().toISOString(),
+          error: error instanceof Error ? error.message : String(error),
+        })
+        .eq('id', runId);
+      if (updateError) throw databaseError('Could not mark scrape run failed', updateError);
+    });
     throw error;
   }
 }
 
 async function upsertBrand(brand: BrandConfig): Promise<string> {
-  const { data, error } = await supabaseAdmin
-    .from('brands')
-    .upsert(
-      {
-        key: brand.key,
-        name: brand.name,
-        family: brand.family,
-        market: brand.market,
-        base_url: brand.baseUrl,
-        currency: brand.currency,
-        adapter: brand.adapter,
-      },
-      { onConflict: 'key' },
-    )
-    .select('id')
-    .single();
+  return retryDatabase(async () => {
+    const { data, error } = await supabaseAdmin
+      .from('brands')
+      .upsert(
+        {
+          key: brand.key,
+          name: brand.name,
+          family: brand.family,
+          market: brand.market,
+          base_url: brand.baseUrl,
+          currency: brand.currency,
+          adapter: brand.adapter,
+        },
+        { onConflict: 'key' },
+      )
+      .select('id')
+      .single();
 
-  if (error) throw new Error(`Could not upsert brand: ${error.message}`);
-  return data.id as string;
+    if (error) throw databaseError('Could not upsert brand', error);
+    return data.id as string;
+  });
 }
 
 async function startRun(brandId: string): Promise<string> {
@@ -76,37 +85,38 @@ async function startRun(brandId: string): Promise<string> {
 
 async function persistProducts(brandId: string, products: Product[]): Promise<void> {
   for (const product of products) {
-    const { data: productRow, error: productError } = await supabaseAdmin
-      .from('products')
-      .upsert(
-        {
-          brand_id: brandId,
-          external_id: product.externalId,
-          handle: product.handle,
-          title: product.title,
-          description: product.description,
-          url: product.url,
-          product_type: product.productType,
-          vendor: product.vendor,
-          tags: product.tags,
-          images: product.images,
-          source: product.source,
-          price_min: product.priceMin.amount,
-          price_max: product.priceMax.amount,
-          currency: product.currency,
-          stock_status: product.stockStatus,
-          scraped_at: product.scrapedAt,
-        },
-        { onConflict: 'brand_id,handle' },
-      )
-      .select('id')
-      .single();
+    const productId = await retryDatabase(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('products')
+        .upsert(
+          {
+            brand_id: brandId,
+            external_id: product.externalId,
+            handle: product.handle,
+            title: product.title,
+            description: product.description,
+            url: product.url,
+            product_type: product.productType,
+            vendor: product.vendor,
+            tags: product.tags,
+            images: product.images,
+            source: product.source,
+            price_min: product.priceMin.amount,
+            price_max: product.priceMax.amount,
+            currency: product.currency,
+            stock_status: product.stockStatus,
+            scraped_at: product.scrapedAt,
+          },
+          { onConflict: 'brand_id,handle' },
+        )
+        .select('id')
+        .single();
 
-    if (productError) {
-      throw new Error(`Could not upsert product "${product.handle}": ${productError.message}`);
-    }
+      if (error) throw databaseError(`Could not upsert product "${product.handle}"`, error);
+      return data.id as string;
+    });
 
-    await persistVariants(productRow.id as string, product);
+    await persistVariants(productId, product);
   }
 }
 
@@ -132,33 +142,32 @@ async function persistVariants(productId: string, product: Product): Promise<voi
   if (stockError) throw new Error(`Could not record product stock: ${stockError.message}`);
 
   for (const variant of product.variants) {
-    const { data: variantRow, error: variantError } = await supabaseAdmin
-      .from('variants')
-      .upsert(
-        {
-          product_id: productId,
-          external_id: variant.externalId,
-          sku: variant.sku,
-          title: variant.title,
-          size: variant.size,
-          raw_size: variant.rawSize,
-          color: variant.color,
-          price: variant.price.amount,
-          compare_at_price: variant.compareAtPrice?.amount ?? null,
-          available: variant.available,
-          inventory_quantity: variant.inventoryQuantity,
-          position: variant.position,
-        },
-        { onConflict: 'product_id,external_id' },
-      )
-      .select('id')
-      .single();
+    const variantId = await retryDatabase(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('variants')
+        .upsert(
+          {
+            product_id: productId,
+            external_id: variant.externalId,
+            sku: variant.sku,
+            title: variant.title,
+            size: variant.size,
+            raw_size: variant.rawSize,
+            color: variant.color,
+            price: variant.price.amount,
+            compare_at_price: variant.compareAtPrice?.amount ?? null,
+            available: variant.available,
+            inventory_quantity: variant.inventoryQuantity,
+            position: variant.position,
+          },
+          { onConflict: 'product_id,external_id' },
+        )
+        .select('id')
+        .single();
 
-    if (variantError) {
-      throw new Error(`Could not upsert variant "${variant.externalId}": ${variantError.message}`);
-    }
-
-    const variantId = variantRow.id as string;
+      if (error) throw databaseError(`Could not upsert variant "${variant.externalId}"`, error);
+      return data.id as string;
+    });
     const { error: variantPriceError } = await supabaseAdmin.from('price_history').insert({
       product_id: productId,
       variant_id: variantId,
@@ -180,17 +189,35 @@ async function persistVariants(productId: string, product: Product): Promise<voi
 }
 
 async function finishRun(runId: string, result: ScrapeResult): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from('scrape_runs')
-    .update({
-      status: result.stats.failures > 0 ? 'completed_with_errors' : 'completed',
-      finished_at: new Date().toISOString(),
-      products_found: result.stats.productsFound,
-      products_parsed: result.stats.productsParsed,
-      request_count: result.stats.requests,
-      error: result.stats.errors.length > 0 ? result.stats.errors.join('\n') : null,
-    })
-    .eq('id', runId);
+  await retryDatabase(async () => {
+    const { error } = await supabaseAdmin
+      .from('scrape_runs')
+      .update({
+        status: result.stats.failures > 0 ? 'completed_with_errors' : 'completed',
+        finished_at: new Date().toISOString(),
+        products_found: result.stats.productsFound,
+        products_parsed: result.stats.productsParsed,
+        request_count: result.stats.requests,
+        error: result.stats.errors.length > 0 ? result.stats.errors.join('\n') : null,
+      })
+      .eq('id', runId);
 
-  if (error) throw new Error(`Could not finish scrape run: ${error.message}`);
+    if (error) throw databaseError('Could not finish scrape run', error);
+  });
+}
+
+function databaseError(prefix: string, error: { message: string; code?: string }): Error {
+  return Object.assign(new Error(`${prefix}: ${error.message}`), { code: error.code });
+}
+
+function retryDatabase<T>(operation: () => Promise<T>): Promise<T> {
+  return retryTransient(operation, {
+    onRetry: (error, attempt, delayMs) => {
+      log.warn('transient Supabase write failed; retrying', {
+        attempt,
+        delayMs,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
 }
