@@ -203,13 +203,13 @@ function updateDependentFilters() {
   const brandProducts = dom.brand.value === 'all'
     ? state.products
     : state.products.filter((product) => product.brandKey === dom.brand.value);
-  const categories = unique(brandProducts.map((product) => product.productType).filter(Boolean)).sort();
+  const categories = unique(brandProducts.map((product) => customerCategory(product)).filter(Boolean)).sort();
   replaceOptions(dom.category, 'All categories', categories);
 
   const categoryRequired = dom.brand.value !== 'all' && categories.length > 1 && dom.category.value === 'all';
   const categoryProducts = dom.category.value === 'all'
     ? brandProducts
-    : brandProducts.filter((product) => product.productType === dom.category.value);
+    : brandProducts.filter((product) => customerCategory(product) === dom.category.value);
   const sizes = unique(categoryProducts.flatMap((product) => product.variants.map((variant) => variant.size).filter(isUsefulSize))).sort(sizeSort);
   if (categoryRequired) {
     dom.size.innerHTML = '<option value="all">Choose category first</option>';
@@ -252,9 +252,14 @@ function render() {
   const term = dom.search.value.trim().toLowerCase();
   let products = state.products.filter((product) => {
     if (state.homeCategory && customerCategory(product) !== state.homeCategory) return false;
-    if (state.audience !== 'all' && productAudience(product) !== state.audience) return false;
+    if (state.audience !== 'all') {
+      const aud = productAudience(product);
+      if (state.audience === 'boys' && aud !== 'boys' && aud !== 'kids') return false;
+      if (state.audience === 'girls' && aud !== 'girls' && aud !== 'kids') return false;
+      if (state.audience !== 'boys' && state.audience !== 'girls' && aud !== state.audience) return false;
+    }
     if (dom.brand.value !== 'all' && product.brandKey !== dom.brand.value) return false;
-    if (dom.category.value !== 'all' && product.productType !== dom.category.value) return false;
+    if (dom.category.value !== 'all' && customerCategory(product) !== dom.category.value) return false;
     if (dom.size.value !== 'all' && !product.variants.some((variant) => variant.size === dom.size.value)) return false;
     if (dom.inStock.checked && !product.variants.some((variant) => variant.available)) return false;
     if (!term) return true;
@@ -333,25 +338,25 @@ function categoryShowcase(products) {
 }
 
 function customerCategory(product) {
-  const text = [product.productType, product.title, ...product.tags].filter(Boolean).join(' ').toLowerCase();
-  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) return 'Kids';
-  if (/fragrance|perfume|body spray|deodorant/.test(text)) return 'Fragrances';
-  if (/footwear|shoe|pump|sandal|chappal|loafer/.test(text)) return 'Footwear';
-  if (/accessor|bag|jewell|jewellery|scarf|dupatta/.test(text)) return 'Accessories';
-  if (/western|trouser|pant|skirt|shorts|bottom|blouse|shirt|top|tee|blazer|jeans/.test(text)) return 'Western';
-  if (/dress|maxi|kaftan/.test(text)) return 'Dresses';
-  if (/festive|bridal|formal|wedding/.test(text)) return 'Festive';
-  if (/lawn|pret|fusion|eastern|stitched|unstitched|suit|ensemble|set|co-ord|coord|kameez|kurta|shalwar|kurti/.test(text)) return 'Eastern wear';
+  const text = [product.productType, product.title, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
+  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b|\bboy\b|\bgirl\b|\bboys\b|\bgirls\b/.test(text)) return 'Kids';
+  if (/fragrance|perfume|body mist|body spray|deodorant|attar|eau de|man-perfumes|womens-perfumes|body-mists|\/for_her\/|000000frl|000000frm|000000fpm|000000fpl|000000bmm|000000bml/.test(text)) return 'Fragrances';
+  if (/footwear|shoe|shoes|pump|pumps|sandal|sandals|chappal|loafer|loafers|flats?|mules?|khussa|kolhapuri|sneaker|sneakers|heel|heels|slippers?/.test(text)) return 'Footwear';
+  if (/cushion|table runner|dummy book|candle|diffuser|tray|coaster|vase|pottery|plate|bowl|platter|home decor|bedding|quilt|pillow|gift box|tissue box|\bobjects\b|\bhome\b|\bmugs?\b/.test(text)) return 'Home & Living';
+  if (/accessor|bag|bags|clutch|tote|wallet|jewell|jewellery|earring|necklace|bracelet|ring|anklet|bangle|hair|belt|sunglasses|eyewear|mask|scarf|scarves|dupatta|shawl|stole/.test(text)) return 'Accessories';
+  if (/festive|bridal|couture|formal|wedding|luxury pret|raw silk|chiffon|organza|zari|embroidered formal|the-night-before-forever|desert-rose|mastaani/.test(text)) return 'Festive & Formal';
+  if (/polo|tee|t-shirt|blazer|jacket|hoodie|sweatshirt|jeans|denim|western|tank top|cardigan|overcoat|sweater/.test(text)) return 'Western';
+  if (/lawn|pret|fusion|eastern|stitched|suit|ensemble|set|co-ord|coord|kameez|kurta|kurti|shalwar|salwar|trouser|pant|culottes|plazo|palazzo|pajama|tunic|kaftan|abaya|maxi|dress|shirt|top|bottom|ready-to-wear/.test(text)) return 'Eastern wear';
   return 'More to discover';
 }
 
 function productAudience(product) {
+  const text = [product.title, product.productType, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
+  if (/\bboy\b|\bboys\b|cambridge junior/.test(text)) return 'boys';
+  if (/\bgirl\b|\bgirls\b|daughter/.test(text)) return 'girls';
+  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) return 'kids';
   if (product.brandKey === 'cambridge-pk') return 'men';
-  const text = [product.title, product.productType, ...product.tags].filter(Boolean).join(' ').toLowerCase();
-  if (/\bboy|boys/.test(text)) return 'boys';
-  if (/\bgirl|girls/.test(text)) return 'girls';
-  if (/\bboy|boys|men|mens|male|kameez shalwar|jubba|waistcoat/.test(text)) return 'men';
-  if (/\bkids?|junior|toddler|daughter/.test(text)) return 'girls';
+  if (/\bmen\b|\bmens\b|\bmale\b|\bgents\b|kameez shalwar|jubba|waistcoat|\bpajama\b|mashriq|man-perfumes|men-s-body-mists|for him/.test(text)) return 'men';
   return 'women';
 }
 

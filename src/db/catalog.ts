@@ -33,7 +33,6 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
       .eq('active', true)
       .neq('stock_status', 'out_of_stock')
       .not('title', 'ilike', '%brief%')
-      .not('product_type', 'ilike', '%brief%')
       .order('scraped_at', { ascending: false })
       .limit(perBrandLimit);
 
@@ -44,7 +43,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   const converter = await getUsdConverter();
   const products = batches.flat()
     .map(toProduct)
-    .filter((product) => !isUnstitched(product))
+    .filter((product) => !isUnstitched(product) && !isBrief(product))
     .map((product) => convertProduct(product, converter));
   return {
     products,
@@ -145,7 +144,13 @@ function convertProduct(product: Product, converter: Converter): Product {
 }
 
 function isUnstitched(product: Product): boolean {
-  const text = [product.title, product.productType, product.description, ...product.tags]
+  const text = [product.title, product.productType, product.url, product.description, ...product.tags]
     .filter(Boolean).join(' ').toLowerCase();
-  return /unstitched|un-stitched/.test(text);
+  return /unstitched|un-stitched|\/unstitched\//.test(text);
+}
+
+function isBrief(product: Product): boolean {
+  const text = [product.title, product.productType, product.url, ...product.tags]
+    .filter(Boolean).join(' ').toLowerCase();
+  return /\bbriefs?\b|\bunderwear\b|\bpanties\b|\bundershirt\b/.test(text);
 }
