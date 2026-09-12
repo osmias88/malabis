@@ -266,6 +266,7 @@ function categoryShowcase(products) {
 
 function customerCategory(product) {
   const text = [product.productType, product.title, ...product.tags].filter(Boolean).join(' ').toLowerCase();
+  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) return 'Kids';
   if (/fragrance|perfume|body spray|deodorant/.test(text)) return 'Fragrances';
   if (/footwear|shoe|pump|sandal|chappal|loafer/.test(text)) return 'Footwear';
   if (/accessor|bag|jewell|jewellery|scarf|dupatta/.test(text)) return 'Accessories';
