@@ -674,19 +674,217 @@ function demandProxyScore(product) {
   return Math.min(1, matches / 3);
 }
 
+function formatProductDescription(raw) {
+  if (!raw) return '';
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return '';
+
+  const sections = [];
+  let currentHeader = '';
+  let currentItems = [];
+
+  const headerRegex = /^(product details|details|care instructions|care|size & fit|specifications|fabric details|description|disclaimer|composition|material|fit & styling|fabric & care):?$/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (headerRegex.test(line)) {
+      if (currentItems.length || currentHeader) {
+        sections.push({ header: currentHeader, items: currentItems });
+        currentItems = [];
+      }
+      currentHeader = line.replace(/:$/, '').trim();
+    } else if (/^[-•*]\s*/.test(line)) {
+      currentItems.push({ type: 'bullet', text: line.replace(/^[-•*]\s*/, '') });
+    } else if (line.includes(':') && line.indexOf(':') < 28 && !line.startsWith('http')) {
+      const idx = line.indexOf(':');
+      const key = line.slice(0, idx).trim();
+      const val = line.slice(idx + 1).trim();
+      if (val) {
+        currentItems.push({ type: 'keyval', key, val });
+      } else {
+        if (currentItems.length || currentHeader) {
+          sections.push({ header: currentHeader, items: currentItems });
+          currentItems = [];
+        }
+        currentHeader = key;
+      }
+    } else {
+      currentItems.push({ type: 'text', text: line });
+    }
+  }
+  if (currentItems.length || currentHeader) {
+    sections.push({ header: currentHeader, items: currentItems });
+  }
+
+  let html = '<div class="product-description-formatted">';
+  for (const sec of sections) {
+    html += '<div class="desc-block">';
+    if (sec.header) {
+      html += `<h4 class="desc-heading">${escape(sec.header)}</h4>`;
+    }
+    const bullets = [];
+    for (const item of sec.items) {
+      if (item.type === 'bullet') {
+        bullets.push(item.text);
+      } else {
+        if (bullets.length) {
+          html += `<ul class="desc-bullet-list">${bullets.map((b) => `<li>${escape(b)}</li>`).join('')}</ul>`;
+          bullets.length = 0;
+        }
+        if (item.type === 'keyval') {
+          html += `<div class="desc-keyval"><span class="desc-key">${escape(item.key)}</span><span class="desc-val">${escape(item.val)}</span></div>`;
+        } else if (item.type === 'text') {
+          html += `<p class="desc-paragraph">${escape(item.text)}</p>`;
+        }
+      }
+    }
+    if (bullets.length) {
+      html += `<ul class="desc-bullet-list">${bullets.map((b) => `<li>${escape(b)}</li>`).join('')}</ul>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+let activeDetailSlider = null;
+
 function openDetail(key) {
   const product = state.products.find((item) => productKey(item) === key);
   if (!product) return;
+
+  const images = product.images && product.images.length ? product.images : [{ url: '', alt: product.title }];
   const variants = product.variants.map((variant) => `<div class="variant-row"><span>${escape(variant.size ?? variant.title)}</span><span>${variant.available ? 'Available' : 'Sold out'}</span><strong>${money(variant.price)}</strong></div>`).join('');
-  dom.drawerBody.innerHTML = `<div class="detail-layout"><div class="detail-gallery">${product.images.slice(0, 4).map((image) => `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" />`).join('')}</div>
-    <div class="detail-copy"><p class="eyebrow">${escape(cleanBrand(product.brandName))}</p><h2 id="drawer-title">${escape(product.title)}</h2><p class="detail-price">${money(product.priceMin)}</p>
-    ${product.description ? `<p class="description">${escape(product.description.slice(0, 600))}</p>` : ''}<div class="variant-list">${variants}</div>
-    <div class="detail-actions"><a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a><a class="size-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">Open official product sizing ↗</a></div><p class="detail-note">Purchases and official sizing details are provided on the brand’s product page.</p></div></div>`;
+  const formattedDesc = formatProductDescription(product.description);
+
+  dom.drawerBody.innerHTML = `
+    <div class="detail-layout">
+      <div class="detail-gallery-container">
+        <div class="detail-slider" id="detail-slider" tabindex="0" role="region" aria-label="Product images slideshow">
+          <div class="detail-slides-track">
+            ${images.map((image, idx) => `
+              <div class="detail-slide ${idx === 0 ? 'is-active' : ''}" data-index="${idx}">
+                ${image.url ? `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" loading="${idx === 0 ? 'eager' : 'lazy'}" />` : '<span class="image-fallback">M</span>'}
+              </div>
+            `).join('')}
+          </div>
+          ${images.length > 1 ? `
+            <button class="slider-arrow slider-prev" id="slider-prev-btn" type="button" aria-label="Previous image">‹</button>
+            <button class="slider-arrow slider-next" id="slider-next-btn" type="button" aria-label="Next image">›</button>
+            <div class="slider-counter"><span id="slider-current-num">1</span> / ${images.length}</div>
+          ` : ''}
+        </div>
+        ${images.length > 1 ? `
+          <div class="detail-thumbnails" id="detail-thumbnails">
+            ${images.map((image, idx) => `
+              <button class="detail-thumb ${idx === 0 ? 'is-active' : ''}" type="button" data-index="${idx}" aria-label="View photo ${idx + 1}">
+                <img src="${escape(image.url)}" alt="" loading="lazy" />
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="detail-copy">
+        <p class="eyebrow">${escape(cleanBrand(product.brandName))}</p>
+        <h2 id="drawer-title">${escape(product.title)}</h2>
+        <p class="detail-price">${money(product.priceMin)}</p>
+
+        ${formattedDesc}
+
+        <div class="variant-list">
+          <h4 class="variant-heading">Available Sizes & Inventory</h4>
+          ${variants}
+        </div>
+
+        <div class="detail-actions">
+          <a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a>
+          <a class="size-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">Open official product sizing ↗</a>
+        </div>
+        <p class="detail-note">Purchases and official sizing details are provided on the brand’s product page.</p>
+      </div>
+    </div>`;
+
   dom.drawer.hidden = false;
   document.body.classList.add('drawer-open');
+
+  // Initialize interactive slider & swipe
+  initDetailSlider(images.length);
 }
 
-function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
+function initDetailSlider(totalImages) {
+  if (totalImages <= 1) {
+    activeDetailSlider = null;
+    return;
+  }
+
+  const sliderEl = document.getElementById('detail-slider');
+  const prevBtn = document.getElementById('slider-prev-btn');
+  const nextBtn = document.getElementById('slider-next-btn');
+  const currentNum = document.getElementById('slider-current-num');
+  const thumbsContainer = document.getElementById('detail-thumbnails');
+  const slides = [...sliderEl.querySelectorAll('.detail-slide')];
+  const thumbs = thumbsContainer ? [...thumbsContainer.querySelectorAll('.detail-thumb')] : [];
+
+  let currentIndex = 0;
+
+  function showSlide(index) {
+    currentIndex = (index + totalImages) % totalImages;
+    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === currentIndex));
+    thumbs.forEach((thumb, i) => thumb.classList.toggle('is-active', i === currentIndex));
+    if (currentNum) currentNum.textContent = String(currentIndex + 1);
+
+    // Keep active thumbnail visible in scroll view
+    if (thumbs[currentIndex]) {
+      thumbs[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }
+
+  activeDetailSlider = {
+    prev: () => showSlide(currentIndex - 1),
+    next: () => showSlide(currentIndex + 1),
+  };
+
+  prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); activeDetailSlider.prev(); });
+  nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); activeDetailSlider.next(); });
+
+  thumbs.forEach((thumb) => {
+    thumb.addEventListener('click', () => showSlide(Number(thumb.dataset.index)));
+  });
+
+  // Touch & Swipe gesture handling
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchEndX = 0;
+  let touchEndY = 0;
+
+  sliderEl.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  sliderEl.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    handleSwipe();
+  }, { passive: true });
+
+  function handleSwipe() {
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    // Ensure horizontal gesture exceeds vertical scrolling gesture
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
+      if (diffX < 0) activeDetailSlider.next(); // Swiped left -> next
+      else activeDetailSlider.prev(); // Swiped right -> prev
+    }
+  }
+}
+
+function closeDetail() {
+  dom.drawer.hidden = true;
+  document.body.classList.remove('drawer-open');
+  activeDetailSlider = null;
+}
 
 function clearFilters() {
   state.department = 'all';
@@ -797,6 +995,9 @@ document.addEventListener('keydown', (event) => {
     closeDetail();
     closeFilterDrawer();
     closeAuth();
+  } else if (!dom.drawer.hidden && activeDetailSlider) {
+    if (event.key === 'ArrowLeft') activeDetailSlider.prev();
+    else if (event.key === 'ArrowRight') activeDetailSlider.next();
   }
 });
 
