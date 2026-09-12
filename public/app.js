@@ -1,5 +1,5 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login' };
+const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
@@ -212,6 +212,7 @@ function renderSizeReference(products, categoryRequired) {
 function render() {
   const term = dom.search.value.trim().toLowerCase();
   let products = state.products.filter((product) => {
+    if (state.homeCategory && customerCategory(product) !== state.homeCategory) return false;
     if (dom.brand.value !== 'all' && product.brandKey !== dom.brand.value) return false;
     if (dom.category.value !== 'all' && product.productType !== dom.category.value) return false;
     if (dom.size.value !== 'all' && !product.variants.some((variant) => variant.size === dom.size.value)) return false;
@@ -227,13 +228,25 @@ function render() {
   if (dom.sort.value === 'newest') products = [...products].sort((a, b) => b.scrapedAt.localeCompare(a.scrapedAt));
 
   const scope = dom.brand.value === 'all' ? 'across all brands' : `from ${cleanBrand(state.brands.find((brand) => brand.key === dom.brand.value)?.name ?? 'this brand')}`;
-  const isHomepage = !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked && dom.sort.value === 'recommended';
+  const isHomepage = !state.homeCategory && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked && dom.sort.value === 'recommended';
   dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
   dom.grid.classList.toggle('category-showcase', isHomepage);
   dom.grid.innerHTML = isHomepage ? categoryShowcase(products) : productGrid(products);
   for (const card of dom.grid.querySelectorAll('.product-card')) {
     card.addEventListener('click', () => openDetail(card.dataset.key));
     card.addEventListener('keydown', (event) => { if (event.key === 'Enter') openDetail(card.dataset.key); });
+  }
+  for (const button of dom.grid.querySelectorAll('.category-filter')) {
+    button.addEventListener('click', () => {
+      state.homeCategory = button.dataset.category;
+      dom.brand.value = 'all';
+      dom.category.value = 'all';
+      dom.size.value = 'all';
+      dom.sort.value = 'recommended';
+      updateDependentFilters();
+      render();
+      document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 }
 
@@ -256,7 +269,7 @@ function categoryShowcase(products) {
     .sort((left, right) => right[1].length - left[1].length)
     .map(([category, items]) => `
       <section class="category-section" aria-labelledby="category-${slugify(category)}">
-        <div class="category-heading"><h3 id="category-${slugify(category)}">${escape(category)}</h3><span>Top ${Math.min(12, items.length)}</span></div>
+        <button class="category-heading category-filter" type="button" data-category="${escape(category)}"><h3 id="category-${slugify(category)}">${escape(category)}</h3><span>View ${items.length} pieces →</span></button>
         <div class="category-grid">${items.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
       </section>`);
 
@@ -339,7 +352,7 @@ function openDetail(key) {
 }
 
 function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
-function clearFilters() { dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'recommended'; dom.inStock.checked = false; updateDependentFilters(); render(); }
+function clearFilters() { state.homeCategory = null; dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'recommended'; dom.inStock.checked = false; updateDependentFilters(); render(); }
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }

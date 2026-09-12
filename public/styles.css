@@ -60,9 +60,10 @@ button,input,select { font:inherit; }
 .product-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:34px 16px; }
 .category-showcase { display:grid; gap:58px; }
 .category-section { min-width:0; }
-.category-heading { display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:18px; border-bottom:1px solid var(--line); padding-bottom:10px; }
+.category-heading { width:100%; display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:18px; border:0; border-bottom:1px solid var(--line); padding:0 0 10px; background:transparent; color:var(--ink); cursor:pointer; text-align:left; }
 .category-heading h3 { margin:0; font:500 28px/1.1 var(--font-display); }
 .category-heading span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
+.category-heading:hover h3 { color:var(--vermilion); }
 .category-grid { display:flex; gap:16px; overflow-x:auto; padding:2px 2px 12px; scroll-snap-type:x mandatory; scrollbar-width:thin; }
 .category-grid .product-card { flex:0 0 228px; scroll-snap-align:start; }
 .product-card { min-width:0; cursor:pointer; outline:none; }
