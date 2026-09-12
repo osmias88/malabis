@@ -14,17 +14,21 @@ interface IngestSummary {
   variants: number;
 }
 
+  export type IngestMode = 'catalog' | 'stock';
+
 export async function ingestBrand(
   brand: BrandConfig,
   options: RunOptions = {},
-): Promise<IngestSummary> {
+    mode: IngestMode = 'catalog',
+  ): Promise<IngestSummary> {
   const brandId = await upsertBrand(brand);
   const runId = await startRun(brandId);
 
   try {
     const runStartedAt = new Date().toISOString();
     const result = await scrapeBrand(brand, options);
-    await persistProducts(brandId, result.products);
+      if (mode === 'stock') await persistStock(brandId, result.products);
+      else await persistProducts(brandId, result.products);
     await deactivateMissingProducts(brandId, runStartedAt);
     await finishRun(runId, result);
 
@@ -120,6 +124,62 @@ async function persistProducts(brandId: string, products: Product[]): Promise<vo
       if (!productId) throw new Error(`Missing product id for ${product.handle}`);
       return { productId, product };
     }));
+  }
+}
+
+async function persistStock(brandId: string, products: Product[]): Promise<void> {
+  const { data: storedProducts, error } = await supabaseAdmin
+    .from('products')
+    .select('id, handle, variants(id, external_id)')
+    .eq('brand_id', brandId);
+  if (error) throw new Error(`Could not load stock targets: ${error.message}`);
+
+  const byHandle = new Map((storedProducts ?? []).map((row) => [
+    String(row.handle),
+    {
+      id: String(row.id),
+      variants: new Map((row.variants ?? []).map((variant: { id: string; external_id: string }) => [
+        String(variant.external_id), String(variant.id),
+      ])),
+    },
+  ]));
+  const stockHistory: Array<Record<string, unknown>> = [];
+
+  for (const product of products) {
+    const stored = byHandle.get(product.handle);
+    if (!stored) continue;
+    await supabaseAdmin.from('products').update({
+      stock_status: product.stockStatus,
+      scraped_at: product.scrapedAt,
+      last_seen_at: product.scrapedAt,
+      active: true,
+    }).eq('id', stored.id);
+    stockHistory.push({
+      product_id: stored.id,
+      available: product.stockStatus === StockStatus.Unknown ? null : product.stockStatus !== StockStatus.OutOfStock,
+      captured_at: product.scrapedAt,
+    });
+
+    for (const variant of product.variants) {
+      const variantId = stored.variants.get(variant.externalId);
+      if (!variantId) continue;
+      await supabaseAdmin.from('variants').update({
+        available: variant.available,
+        inventory_quantity: variant.inventoryQuantity,
+      }).eq('id', variantId);
+      stockHistory.push({
+        product_id: stored.id,
+        variant_id: variantId,
+        available: variant.available,
+        inventory_quantity: variant.inventoryQuantity,
+        captured_at: product.scrapedAt,
+      });
+    }
+  }
+
+  for (const batch of chunk(stockHistory, 100)) {
+    const { error: historyError } = await supabaseAdmin.from('stock_history').insert(batch);
+    if (historyError) throw new Error(`Could not record stock batch: ${historyError.message}`);
   }
 }
 

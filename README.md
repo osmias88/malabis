@@ -76,6 +76,12 @@ Multi-brand ingestion runs up to three brands concurrently by default. Tune it
 with `--brand-concurrency <n>`; each brand still keeps its own request rate
 limit and failures remain isolated.
 
+Ingestion supports two modes: `--mode catalog` updates full product metadata,
+images, variants, and lifecycle fields; `--mode stock` updates availability,
+inventory, timestamps, and stock history without rewriting full metadata. The
+scheduled workflow runs stock refreshes hourly and a full catalog refresh daily
+at 03:00 UTC.
+
 ## Scheduled ingestion
 
 `.github/workflows/ingest.yml` refreshes every active brand hourly at 17 minutes

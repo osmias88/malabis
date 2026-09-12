@@ -9,6 +9,7 @@ import { comparePrices } from './compare/compare.js';
 import { createConverter, parseRateOverrides } from './compare/fx.js';
 import { printDoctor, runDoctor } from './diagnostics/doctor.js';
 import { startServer } from './server.js';
+import type { IngestMode } from './db/ingest.js';
 
 const log = createLogger('cli');
 
@@ -146,12 +147,15 @@ program
   .option('-l, --limit <n>', 'max products to ingest', (v) => Number.parseInt(v, 10), 25)
   .option('-c, --concurrency <n>', 'parallel requests', (v) => Number.parseInt(v, 10), 4)
   .option('--brand-concurrency <n>', 'brands to ingest concurrently', (v) => Number.parseInt(v, 10), 3)
+  .option('--mode <mode>', 'ingestion mode: catalog or stock', 'catalog')
   .option('--no-robots', 'skip robots.txt checks (development only)')
   .addOption(logLevelOption)
   .action(async (options: IngestOptions) => {
     setLogLevel(options.logLevel as 'info');
     if (options.all && options.brand) throw new Error('Use either --brand <key> or --all, not both.');
     const brands = options.all ? BRANDS : [getBrand(options.brand ?? requireBrand())];
+    const mode = options.mode || 'catalog';
+    if (mode !== 'catalog' && mode !== 'stock') throw new Error('--mode must be catalog or stock.');
     const { ingestBrand } = await import('./db/ingest.js');
 
     const brandConcurrency = Math.max(1, Math.min(options.brandConcurrency, brands.length));
@@ -164,7 +168,7 @@ program
             limit: options.limit,
             concurrency: options.concurrency,
             respectRobots: options.robots,
-          });
+          }, mode as IngestMode);
           log.info(`saved ${summary.products} products and ${summary.variants} variants`, {
             brand: summary.brandKey,
             runId: summary.runId,
@@ -234,6 +238,7 @@ interface IngestOptions {
   limit: number;
   concurrency: number;
   brandConcurrency: number;
+  mode: string;
   robots: boolean;
   logLevel: string;
 }

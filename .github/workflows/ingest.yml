@@ -3,6 +3,7 @@ name: Refresh product catalog
 on:
   schedule:
     - cron: '17 * * * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       brand:
@@ -22,6 +23,14 @@ on:
         required: true
         default: '400'
         type: string
+      mode:
+        description: Refresh mode
+        required: true
+        default: stock
+        type: choice
+        options:
+          - stock
+          - catalog
 
 permissions:
   contents: read
@@ -63,8 +72,12 @@ jobs:
       - name: Ingest catalog
         shell: bash
         run: |
+          MODE="${{ inputs.mode || 'stock' }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "${{ github.event.schedule }}" = "0 3 * * *" ]; then MODE="catalog"; else MODE="stock"; fi
+          fi
           if [ "$INGEST_BRAND" = "all" ]; then
-            npm run ingest -- --all --limit "$INGEST_LIMIT"
+            npm run ingest -- --all --mode "$MODE" --limit "$INGEST_LIMIT"
           else
-            npm run ingest -- --brand "$INGEST_BRAND" --limit "$INGEST_LIMIT"
+            npm run ingest -- --brand "$INGEST_BRAND" --mode "$MODE" --limit "$INGEST_LIMIT"
           fi
