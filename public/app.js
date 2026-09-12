@@ -152,7 +152,7 @@ function renderHeroReel() {
       next += 1;
     }
     if (next >= featured.length) window.clearInterval(state.heroTimer);
-  }, 3500);
+  }, 5000);
 }
 
 function hydrateFilters() {
