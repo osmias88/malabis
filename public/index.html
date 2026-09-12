@@ -10,13 +10,22 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="wordmark" href="/" aria-label="Malabis home">MALABIS</a>
+      <div class="header-left">
+        <button id="header-filter-btn" class="header-menu-btn" type="button" aria-label="Open filter and categories menu">
+          <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="menu-label">Filters</span>
+          <span id="header-filter-badge" class="filter-badge" hidden>0</span>
+        </button>
+        <a class="wordmark" href="/" aria-label="Malabis home">MALABIS</a>
+      </div>
+
       <nav class="site-nav" aria-label="Primary navigation">
-        <a class="current" href="#catalogue" data-nav-dept="all">All Categories</a>
+        <a class="current" href="#catalogue" data-nav-dept="all">All</a>
         <a href="#catalogue" data-nav-dept="women">Women</a>
         <a href="#catalogue" data-nav-dept="men">Men</a>
         <a href="#catalogue" data-nav-dept="kids">Kids</a>
       </nav>
+
       <div class="header-actions">
         <span class="location">We ship across the United States</span>
         <button id="account-button" class="account-button" type="button">Sign in</button>
@@ -31,17 +40,10 @@
       <section id="catalogue" class="catalogue" aria-labelledby="catalogue-title">
         <div class="catalogue-heading">
           <div>
-            <p id="catalogue-eyebrow" class="eyebrow">Explore the Collections</p>
+            <p id="catalogue-eyebrow" class="eyebrow">Explore Collections</p>
             <h2 id="catalogue-title">Shop by Category</h2>
           </div>
-          <p id="updated" class="updated">Updating the collection…</p>
-        </div>
-
-        <div id="audience-tabs" class="audience-tabs" role="tablist" aria-label="Shop by department">
-          <button class="audience-tab is-active" type="button" role="tab" aria-selected="true" data-audience="all">All Categories</button>
-          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="women">Women</button>
-          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="men">Men</button>
-          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="kids">Kids & Juniors</button>
+          <p id="updated" class="updated">Updating collection…</p>
         </div>
 
         <div id="breadcrumbs" class="breadcrumbs" hidden>
@@ -56,10 +58,17 @@
           <div id="subcategory-pills" class="subcategory-pills" role="tablist" aria-label="Subcategories"></div>
         </div>
 
-        <!-- Featured Category Picture Cards (Cambridge / Sapphire layout) -->
-        <div id="category-tiles" class="category-tiles" aria-label="Category showcase"></div>
+        <!-- 1-in-a-row Category Showcase Slider with Slide Animation -->
+        <div id="category-showcase-container" class="category-showcase-container">
+          <div id="category-slider" class="category-slider" aria-label="Category showcase slideshow">
+            <div id="category-track" class="category-track"></div>
+            <button id="cat-prev-btn" class="cat-arrow cat-prev" type="button" aria-label="Previous category">‹</button>
+            <button id="cat-next-btn" class="cat-arrow cat-next" type="button" aria-label="Next category">›</button>
+            <div id="cat-dots" class="cat-dots"></div>
+          </div>
+        </div>
 
-        <!-- Browsing utility bar with Hamburger Filter Button -->
+        <!-- Browsing utility bar in collection view -->
         <div id="browsing-bar" class="browsing-bar" hidden>
           <p id="result-count" class="result-count" aria-live="polite">Loading available pieces…</p>
           <div class="browsing-actions">
@@ -81,18 +90,28 @@
       <p>Prices and availability are synchronized directly with brand storefronts.</p>
     </footer>
 
-    <!-- Filter & Sort Drawer Menu -->
+    <!-- Side Menu / Filter & Sort Drawer (Used on both Laptop and Mobile) -->
     <div id="filter-drawer" class="drawer filter-drawer-modal" hidden>
       <div class="filter-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="filter-drawer-title">
         <div class="filter-drawer-header">
           <div class="filter-drawer-heading">
             <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
-            <h3 id="filter-drawer-title">Filter & Sort</h3>
+            <h3 id="filter-drawer-title">Filters & Categories</h3>
           </div>
-          <button id="filter-drawer-close" class="drawer-close" type="button" aria-label="Close filters">×</button>
+          <button id="filter-drawer-close" class="drawer-close" type="button" aria-label="Close menu">×</button>
         </div>
 
         <div class="filter-drawer-body">
+          <div class="filter-drawer-field">
+            <span>Department</span>
+            <div id="drawer-dept-tabs" class="drawer-dept-tabs" role="tablist">
+              <button class="drawer-dept-tab is-active" type="button" data-dept="all">All</button>
+              <button class="drawer-dept-tab" type="button" data-dept="women">Women</button>
+              <button class="drawer-dept-tab" type="button" data-dept="men">Men</button>
+              <button class="drawer-dept-tab" type="button" data-dept="kids">Kids</button>
+            </div>
+          </div>
+
           <label class="filter-drawer-field">
             <span>Search pieces</span>
             <input id="search" type="search" placeholder="Kurta, lawn, embroidered…" autocomplete="off" />
@@ -128,7 +147,7 @@
         </div>
 
         <div class="filter-drawer-footer">
-          <button id="clear" class="text-button" type="button">Reset filters</button>
+          <button id="clear" class="text-button" type="button">Reset</button>
           <button id="apply-filters-btn" class="shop-link" type="button">View Results</button>
         </div>
       </div>
@@ -162,22 +181,6 @@
     <script type="module" src="/app.js"></script>
   </body>
 </html>
-
-    <div id="auth-modal" class="auth-modal" hidden>
-      <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <button id="auth-close" class="drawer-close" type="button" aria-label="Close account dialog">×</button>
-        <p class="eyebrow">Your Malabis account</p>
-        <h2 id="auth-title">Sign in to save your finds.</h2>
-        <p id="auth-message" class="auth-message">Create an account to keep your cart and checkout details together.</p>
-        <form id="auth-form" class="auth-form">
-          <label><span>Email</span><input id="auth-email" type="email" autocomplete="email" required /></label>
-          <label><span>Password</span><input id="auth-password" type="password" minlength="6" autocomplete="current-password" required /></label>
-          <button id="auth-submit" class="shop-link" type="submit">Sign in</button>
-        </form>
-        <button id="google-auth" class="google-button" type="button">Continue with Google</button>
-        <button id="auth-mode" class="auth-switch" type="button">Need an account? Register</button>
-      </div>
-    </div>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

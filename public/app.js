@@ -20,8 +20,12 @@ const dom = {
   account: el('account-button'), authModal: el('auth-modal'), authForm: el('auth-form'),
   authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
   googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
-  audienceTabs: el('audience-tabs'),
-  categoryTiles: el('category-tiles'),
+  categoryShowcaseContainer: el('category-showcase-container'),
+  categorySlider: el('category-slider'),
+  categoryTrack: el('category-track'),
+  catPrevBtn: el('cat-prev-btn'),
+  catNextBtn: el('cat-next-btn'),
+  catDots: el('cat-dots'),
   breadcrumbs: el('breadcrumbs'),
   backToHome: el('back-to-home'),
   breadcrumbDept: el('breadcrumb-dept'),
@@ -31,10 +35,13 @@ const dom = {
   subcategoryPills: el('subcategory-pills'),
   browsingBar: el('browsing-bar'),
   filterMenuBtn: el('filter-menu-btn'),
+  headerFilterBtn: el('header-filter-btn'),
   filterDrawer: el('filter-drawer'),
   filterDrawerClose: el('filter-drawer-close'),
   applyFiltersBtn: el('apply-filters-btn'),
   filterBadge: el('filter-badge'),
+  headerFilterBadge: el('header-filter-badge'),
+  drawerDeptTabs: el('drawer-dept-tabs'),
   catalogueEyebrow: el('catalogue-eyebrow'),
   catalogueTitle: el('catalogue-title'),
 };
@@ -269,48 +276,65 @@ async function loadCatalogue() {
 }
 
 function renderHeroReel() {
+  if (state.heroSlideTimer) window.clearInterval(state.heroSlideTimer);
+  if (state.heroTimer) window.clearInterval(state.heroTimer);
+
   const featured = [...state.products]
     .filter((product) => product.images[0]?.url)
     .sort((left, right) => recommendationScore(right) - recommendationScore(left));
 
+  if (!featured.length) {
+    dom.heroReel.innerHTML = '';
+    return;
+  }
+
   dom.heroReel.innerHTML = featured.map((product, index) => `
-    <figure class="hero-scene" style="--scene:${index}">
-      <img ${index < 4 ? `src="${escape(product.images[0].url)}"` : `data-src="${escape(product.images[0].url)}"`} alt="" />
-      <figcaption><span>${escape(cleanBrand(product.brandName))}</span><a href="${escape(product.url)}" target="_blank" rel="noreferrer noopener"><strong>${escape(product.title)}</strong><em>View piece ↗</em></a></figcaption>
+    <figure class="hero-scene ${index === 0 ? 'is-active' : ''}" data-index="${index}">
+      <img ${index < 4 ? `src="${escape(product.images[0].url)}"` : `data-src="${escape(product.images[0].url)}"`} alt="" loading="${index === 0 ? 'eager' : 'lazy'}" />
+      <figcaption>
+        <span>${escape(cleanBrand(product.brandName))}</span>
+        <a href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">
+          <strong>${escape(product.title)}</strong>
+          <em>View piece ↗</em>
+        </a>
+      </figcaption>
     </figure>`).join('');
-  dom.heroReel.style.setProperty('--scene-count', featured.length || 1);
+
   const scenes = [...dom.heroReel.querySelectorAll('.hero-scene')];
   let currentScene = 0;
-  scenes[0]?.classList.add('is-active');
-  if (state.heroSlideTimer) window.clearInterval(state.heroSlideTimer);
-  state.heroSlideTimer = window.setInterval(() => {
+
+  function advanceHero() {
     if (scenes.length < 2) return;
-    const current = scenes[currentScene];
-    const nextIndex = (currentScene + 1) % scenes.length;
-    const next = scenes[nextIndex];
-    current.classList.remove('is-active');
-    current.classList.add('is-prev');
-    next.classList.remove('is-prev', 'is-active');
-    next.style.transform = 'translateX(100%)';
-    void next.offsetWidth;
-    next.style.transform = '';
-    next.classList.add('is-active');
-    currentScene = nextIndex;
-  }, 5000);
-  if (state.heroTimer) window.clearInterval(state.heroTimer);
-  let next = 4;
-  state.heroTimer = window.setInterval(() => {
-    for (let index = 0; index < 2; index += 1) {
-      const image = dom.heroReel.querySelector(`.hero-scene:nth-child(${next + 1}) img`);
-      if (!image) break;
-      if (image.dataset.src) {
-        image.src = image.dataset.src;
-        delete image.dataset.src;
-      }
-      next += 1;
+    const prev = scenes[currentScene];
+    currentScene = (currentScene + 1) % scenes.length;
+    const next = scenes[currentScene];
+
+    const img = next.querySelector('img');
+    if (img?.dataset.src) {
+      img.src = img.dataset.src;
+      delete img.dataset.src;
     }
-    if (next >= featured.length) window.clearInterval(state.heroTimer);
-  }, 5000);
+
+    prev.classList.remove('is-active');
+    next.classList.add('is-active');
+  }
+
+  state.heroSlideTimer = window.setInterval(advanceHero, 4500);
+
+  // Lazy load remaining hero images gradually
+  let nextLoad = 4;
+  state.heroTimer = window.setInterval(() => {
+    if (nextLoad >= featured.length) {
+      window.clearInterval(state.heroTimer);
+      return;
+    }
+    const img = dom.heroReel.querySelector(`.hero-scene[data-index="${nextLoad}"] img`);
+    if (img?.dataset.src) {
+      img.src = img.dataset.src;
+      delete img.dataset.src;
+    }
+    nextLoad += 1;
+  }, 2000);
 }
 
 function hydrateFilters() {
@@ -380,25 +404,25 @@ function render() {
   const term = dom.search.value.trim().toLowerCase();
   const isHomepageView = state.department === 'all' && state.subCategory === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all';
 
-  updateAudienceTabs();
   updateNavLinks();
+  updateDrawerDeptTabs();
   updateFilterBadge();
 
   if (isHomepageView) {
-    dom.catalogueEyebrow.textContent = 'Explore the Collections';
+    dom.catalogueEyebrow.textContent = 'Explore Collections';
     dom.catalogueTitle.textContent = 'Shop by Category';
     dom.breadcrumbs.hidden = true;
     dom.subcategoryBar.hidden = true;
     dom.browsingBar.hidden = true;
     dom.sizeReference.hidden = true;
     dom.grid.hidden = true;
-    renderCategoryTiles();
-    dom.categoryTiles.hidden = false;
+    renderCategorySlider();
+    dom.categoryShowcaseContainer.hidden = false;
     return;
   }
 
   // Browsing Mode: Clean vertical grid with menu-accessible filters
-  dom.categoryTiles.hidden = true;
+  dom.categoryShowcaseContainer.hidden = true;
   dom.breadcrumbs.hidden = false;
   dom.browsingBar.hidden = false;
   dom.grid.hidden = false;
@@ -466,54 +490,118 @@ function updateFilterBadge() {
   if (dom.size.value !== 'all') activeFilters += 1;
   if (dom.sort.value !== 'recommended') activeFilters += 1;
   if (dom.search.value.trim()) activeFilters += 1;
+  if (state.department !== 'all') activeFilters += 1;
 
+  const countStr = String(activeFilters);
   if (activeFilters > 0) {
-    dom.filterBadge.hidden = false;
-    dom.filterBadge.textContent = String(activeFilters);
+    if (dom.filterBadge) { dom.filterBadge.hidden = false; dom.filterBadge.textContent = countStr; }
+    if (dom.headerFilterBadge) { dom.headerFilterBadge.hidden = false; dom.headerFilterBadge.textContent = countStr; }
   } else {
-    dom.filterBadge.hidden = true;
+    if (dom.filterBadge) dom.filterBadge.hidden = true;
+    if (dom.headerFilterBadge) dom.headerFilterBadge.hidden = true;
   }
 }
 
 function openFilterDrawer() {
   dom.filterDrawer.hidden = false;
   document.body.classList.add('drawer-open');
-  dom.filterMenuBtn.setAttribute('aria-expanded', 'true');
+  if (dom.filterMenuBtn) dom.filterMenuBtn.setAttribute('aria-expanded', 'true');
+  if (dom.headerFilterBtn) dom.headerFilterBtn.setAttribute('aria-expanded', 'true');
 }
 
 function closeFilterDrawer() {
   dom.filterDrawer.hidden = true;
   document.body.classList.remove('drawer-open');
-  dom.filterMenuBtn.setAttribute('aria-expanded', 'false');
+  if (dom.filterMenuBtn) dom.filterMenuBtn.setAttribute('aria-expanded', 'false');
+  if (dom.headerFilterBtn) dom.headerFilterBtn.setAttribute('aria-expanded', 'false');
 }
 
-function renderCategoryTiles() {
-  const cardsHtml = FEATURED_TILES.map((tile) => {
+let categorySlideIndex = 0;
+let categorySliderTimer = null;
+
+function renderCategorySlider() {
+  if (categorySliderTimer) window.clearInterval(categorySliderTimer);
+
+  const tilesWithData = FEATURED_TILES.map((tile) => {
     const matching = state.products.filter(tile.match);
-    if (!matching.length) return '';
+    if (!matching.length) return null;
     const topItem = [...matching].sort((a, b) => recommendationScore(b) - recommendationScore(a))[0];
     const image = topItem?.images[0]?.url;
+    return { ...tile, matchingCount: matching.length, image };
+  }).filter(Boolean);
 
-    return `
-      <article class="category-tile" tabindex="0" data-dept="${escape(tile.dept)}" data-sub="${escape(tile.sub)}">
-        <figure class="category-tile-figure">
-          ${image ? `<img loading="lazy" src="${escape(image)}" alt="${escape(tile.title)}" />` : '<span class="image-fallback">M</span>'}
-          <div class="category-tile-overlay">
-            <span class="category-tile-count">${matching.length} Pieces</span>
-            <h3 class="category-tile-title">${escape(tile.title)}</h3>
-            <p class="category-tile-subtitle">${escape(tile.subtitle)}</p>
-            <span class="category-tile-cta">Shop Collection ↗</span>
+  if (!tilesWithData.length) {
+    dom.categoryTrack.innerHTML = '';
+    return;
+  }
+
+  dom.categoryTrack.innerHTML = tilesWithData.map((tile, idx) => `
+    <div class="category-slide-item ${idx === categorySlideIndex ? 'is-active' : ''}" data-dept="${escape(tile.dept)}" data-sub="${escape(tile.sub)}" data-idx="${idx}">
+      <article class="category-hero-card" tabindex="0">
+        <figure class="category-hero-figure">
+          ${tile.image ? `<img loading="${idx === 0 ? 'eager' : 'lazy'}" src="${escape(tile.image)}" alt="${escape(tile.title)}" />` : '<span class="image-fallback">M</span>'}
+          <div class="category-hero-overlay">
+            <span class="category-hero-tag">${tile.matchingCount} Pieces Available</span>
+            <h3 class="category-hero-title">${escape(tile.title)}</h3>
+            <p class="category-hero-subtitle">${escape(tile.subtitle)}</p>
+            <span class="category-hero-btn">Browse Collection ↗</span>
           </div>
         </figure>
-      </article>`;
-  }).filter(Boolean).join('');
+      </article>
+    </div>
+  `).join('');
 
-  dom.categoryTiles.innerHTML = cardsHtml;
+  dom.catDots.innerHTML = tilesWithData.map((_, idx) => `
+    <button class="cat-dot ${idx === categorySlideIndex ? 'is-active' : ''}" type="button" data-idx="${idx}" aria-label="Go to category ${idx + 1}"></button>
+  `).join('');
 
-  for (const card of dom.categoryTiles.querySelectorAll('.category-tile')) {
-    const selectTile = () => {
-      state.department = card.dataset.dept;
-      state.subCategory = card.dataset.sub;
+  function updateSlide(newIdx) {
+    categorySlideIndex = (newIdx + tilesWithData.length) % tilesWithData.length;
+    dom.categoryTrack.style.transform = `translateX(-${categorySlideIndex * 100}%)`;
+
+    const items = dom.categoryTrack.querySelectorAll('.category-slide-item');
+    items.forEach((item, i) => item.classList.toggle('is-active', i === categorySlideIndex));
+
+    const dots = dom.catDots.querySelectorAll('.cat-dot');
+    dots.forEach((dot, i) => dot.classList.toggle('is-active', i === categorySlideIndex));
+  }
+
+  dom.catPrevBtn.onclick = (e) => { e.stopPropagation(); updateSlide(categorySlideIndex - 1); };
+  dom.catNextBtn.onclick = (e) => { e.stopPropagation(); updateSlide(categorySlideIndex + 1); };
+
+  dom.catDots.querySelectorAll('.cat-dot').forEach((dot) => {
+    dot.onclick = () => updateSlide(Number(dot.dataset.idx));
+  });
+
+  // Auto-advance categories every 4.5s
+  categorySliderTimer = window.setInterval(() => {
+    updateSlide(categorySlideIndex + 1);
+  }, 4500);
+
+  // Pause on hover
+  dom.categorySlider.onmouseenter = () => { if (categorySliderTimer) window.clearInterval(categorySliderTimer); };
+  dom.categorySlider.onmouseleave = () => {
+    if (categorySliderTimer) window.clearInterval(categorySliderTimer);
+    categorySliderTimer = window.setInterval(() => updateSlide(categorySlideIndex + 1), 4500);
+  };
+
+  // Touch Swipe for Category Slider
+  let cStartX = 0;
+  let cEndX = 0;
+  dom.categorySlider.ontouchstart = (e) => { cStartX = e.changedTouches[0].screenX; };
+  dom.categorySlider.ontouchend = (e) => {
+    cEndX = e.changedTouches[0].screenX;
+    if (Math.abs(cEndX - cStartX) > 40) {
+      if (cEndX < cStartX) updateSlide(categorySlideIndex + 1);
+      else updateSlide(categorySlideIndex - 1);
+    }
+  };
+
+  // Clicking any card opens that category
+  dom.categoryTrack.querySelectorAll('.category-slide-item').forEach((item) => {
+    const handleSelect = () => {
+      state.department = item.dataset.dept;
+      state.subCategory = item.dataset.sub;
       dom.brand.value = 'all';
       dom.category.value = 'all';
       dom.size.value = 'all';
@@ -522,9 +610,11 @@ function renderCategoryTiles() {
       render();
       document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
-    card.addEventListener('click', selectTile);
-    card.addEventListener('keydown', (event) => { if (event.key === 'Enter') selectTile(); });
-  }
+    item.addEventListener('click', handleSelect);
+    item.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSelect(); });
+  });
+
+  updateSlide(categorySlideIndex);
 }
 
 function renderBreadcrumbs() {
@@ -917,9 +1007,10 @@ dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.siz
 dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
 for (const control of [dom.search, dom.size, dom.sort]) control.addEventListener('input', render);
 
-function updateAudienceTabs() {
-  for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
-    const selected = tab.dataset.audience === state.department;
+function updateDrawerDeptTabs() {
+  if (!dom.drawerDeptTabs) return;
+  for (const tab of dom.drawerDeptTabs.querySelectorAll('.drawer-dept-tab')) {
+    const selected = tab.dataset.dept === state.department;
     tab.classList.toggle('is-active', selected);
     tab.setAttribute('aria-selected', String(selected));
   }
@@ -932,16 +1023,19 @@ function updateNavLinks() {
   }
 }
 
-for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
-  tab.addEventListener('click', () => {
-    state.department = tab.dataset.audience;
-    state.subCategory = 'all';
-    dom.brand.value = 'all';
-    dom.category.value = 'all';
-    dom.size.value = 'all';
-    updateDependentFilters();
-    render();
-  });
+if (dom.drawerDeptTabs) {
+  for (const tab of dom.drawerDeptTabs.querySelectorAll('.drawer-dept-tab')) {
+    tab.addEventListener('click', () => {
+      state.department = tab.dataset.dept;
+      state.subCategory = 'all';
+      dom.brand.value = 'all';
+      dom.category.value = 'all';
+      dom.size.value = 'all';
+      updateDependentFilters();
+      updateDrawerDeptTabs();
+      render();
+    });
+  }
 }
 
 for (const link of document.querySelectorAll('[data-nav-dept]')) {
@@ -953,6 +1047,7 @@ for (const link of document.querySelectorAll('[data-nav-dept]')) {
     dom.category.value = 'all';
     dom.size.value = 'all';
     updateDependentFilters();
+    updateDrawerDeptTabs();
     render();
     document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
@@ -965,6 +1060,7 @@ dom.backToHome.addEventListener('click', () => {
   dom.category.value = 'all';
   dom.size.value = 'all';
   updateDependentFilters();
+  updateDrawerDeptTabs();
   render();
 });
 
@@ -976,9 +1072,13 @@ dom.breadcrumbDept.addEventListener('click', () => {
   render();
 });
 
-dom.filterMenuBtn.addEventListener('click', openFilterDrawer);
+if (dom.headerFilterBtn) dom.headerFilterBtn.addEventListener('click', openFilterDrawer);
+if (dom.filterMenuBtn) dom.filterMenuBtn.addEventListener('click', openFilterDrawer);
 dom.filterDrawerClose.addEventListener('click', closeFilterDrawer);
-dom.applyFiltersBtn.addEventListener('click', closeFilterDrawer);
+dom.applyFiltersBtn.addEventListener('click', () => {
+  closeFilterDrawer();
+  document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 dom.filterDrawer.addEventListener('click', (event) => { if (event.target === dom.filterDrawer) closeFilterDrawer(); });
 
 dom.clear.addEventListener('click', clearFilters);
@@ -1002,5 +1102,5 @@ document.addEventListener('keydown', (event) => {
 });
 
 await loadAuth();
-updateAudienceTabs();
+updateDrawerDeptTabs();
 await loadCatalogue();
