@@ -91,6 +91,23 @@ The scheduled run ingests up to 100 products per brand. Scrape failures are
 recorded in `scrape_runs`, and a failing brand does not prevent later brands
 from being attempted.
 
+## Authentication
+
+The public catalogue now supports email registration, password login, logout,
+and Google OAuth through Supabase Auth. The browser receives only
+`SUPABASE_URL` and `SUPABASE_ANON_KEY`; the service-role key remains server-only.
+
+To enable Google sign-in in Supabase:
+
+1. Open **Authentication → Providers → Google** and enable it.
+2. Add the Google OAuth client ID and secret.
+3. Add `https://malabis.onrender.com/` to Supabase **URL Configuration → Redirect URLs**.
+4. Add the Supabase callback URL shown in the provider settings to Google’s authorized redirect URIs.
+
+The payment button remains intentionally disabled. Cart, stock verification, and
+manual order confirmation will be added on top of this authenticated user
+identity next.
+
 ## Render deployment
 
 The repository includes `render.yaml`. In Render, create a **Blueprint**,

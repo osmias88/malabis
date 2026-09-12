@@ -1,10 +1,13 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [], fx: null };
+const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login' };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), heroReel: el('hero-reel'),
   sizeReference: el('size-reference'), drawer: el('drawer'), drawerBody: el('drawer-body'),
+  account: el('account-button'), authModal: el('auth-modal'), authForm: el('auth-form'),
+  authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
+  googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
 };
 
 const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited availability', out_of_stock: 'Sold out', unknown: 'Check availability' };
@@ -20,6 +23,90 @@ async function getJson(url) {
   const body = await response.json();
   if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
   return body;
+}
+
+async function authRequest(path, options = {}) {
+  const response = await fetch(`${state.authConfig.supabaseUrl}/auth/v1${path}`, {
+    ...options,
+    headers: { apikey: state.authConfig.supabaseAnonKey, 'content-type': 'application/json', ...(options.headers ?? {}) },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error_description ?? body.msg ?? body.message ?? 'Authentication failed.');
+  return body;
+}
+
+async function loadAuth() {
+  const config = await getJson('/api/auth-config');
+  if (!config.supabaseUrl || !config.supabaseAnonKey) return;
+  state.authConfig = config;
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if (hash.get('access_token')) {
+    state.auth = {
+      access_token: hash.get('access_token'),
+      refresh_token: hash.get('refresh_token'),
+    };
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+    localStorage.setItem('malabis.auth', JSON.stringify(state.auth));
+  }
+
+  const stored = localStorage.getItem('malabis.auth');
+  if (stored) {
+    try {
+      state.auth = JSON.parse(stored);
+      if (state.auth.access_token) {
+        state.auth.user = await authRequest('/user', { headers: { Authorization: `Bearer ${state.auth.access_token}` } });
+        localStorage.setItem('malabis.auth', JSON.stringify(state.auth));
+      }
+    } catch { localStorage.removeItem('malabis.auth'); }
+  }
+  renderAccount();
+}
+
+function renderAccount() {
+  if (!state.auth?.user) { dom.account.textContent = 'Sign in'; return; }
+  dom.account.textContent = `Hi, ${state.auth.user.user_metadata?.full_name ?? state.auth.user.email?.split('@')[0] ?? 'there'}`;
+}
+
+function openAuth() {
+  if (state.auth?.user) {
+    state.auth = null;
+    localStorage.removeItem('malabis.auth');
+    renderAccount();
+    return;
+  }
+  dom.authModal.hidden = false;
+}
+
+function closeAuth() { dom.authModal.hidden = true; }
+
+function setAuthMode(mode) {
+  state.authMode = mode;
+  const register = mode === 'register';
+  dom.authSubmit.textContent = register ? 'Create account' : 'Sign in';
+  dom.authMode.textContent = register ? 'Already registered? Sign in' : 'Need an account? Register';
+  dom.authMessage.textContent = register ? 'Create an account to keep your cart and checkout details together.' : 'Sign in to save your finds and continue to checkout later.';
+  dom.authPassword.autocomplete = register ? 'new-password' : 'current-password';
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  dom.authSubmit.disabled = true;
+  dom.authMessage.textContent = 'Working…';
+  try {
+    const path = state.authMode === 'register' ? '/signup' : '/token?grant_type=password';
+    const result = await authRequest(path, { method: 'POST', body: JSON.stringify({ email: dom.authEmail.value.trim(), password: dom.authPassword.value }) });
+    if (!result.access_token) { dom.authMessage.textContent = 'Check your email to confirm your account, then sign in.'; return; }
+    state.auth = { access_token: result.access_token, refresh_token: result.refresh_token, user: result.user };
+    localStorage.setItem('malabis.auth', JSON.stringify(state.auth));
+    renderAccount();
+    closeAuth();
+  } catch (error) { dom.authMessage.textContent = error.message; }
+  finally { dom.authSubmit.disabled = false; }
+}
+
+function signInWithGoogle() {
+  const params = new URLSearchParams({ provider: 'google', redirect_to: location.origin + '/' });
+  location.href = `${state.authConfig.supabaseUrl}/auth/v1/authorize?${params}`;
 }
 
 async function loadCatalogue() {
@@ -204,8 +291,15 @@ dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.siz
 dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
 for (const control of [dom.search, dom.size, dom.sort, dom.inStock]) control.addEventListener('input', render);
 dom.clear.addEventListener('click', clearFilters);
+dom.account.addEventListener('click', openAuth);
+dom.authClose.addEventListener('click', closeAuth);
+dom.authModal.addEventListener('click', (event) => { if (event.target === dom.authModal) closeAuth(); });
+dom.authForm.addEventListener('submit', submitAuth);
+dom.authMode.addEventListener('click', () => setAuthMode(state.authMode === 'login' ? 'register' : 'login'));
+dom.googleAuth.addEventListener('click', signInWithGoogle);
 el('drawer-close').addEventListener('click', closeDetail);
 dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDetail(); });
 document.querySelector('[data-new-link]').addEventListener('click', () => { dom.sort.value = 'newest'; render(); });
+await loadAuth();
 await loadCatalogue();

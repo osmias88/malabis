@@ -17,6 +17,7 @@
         <a href="#about">Our collection</a>
       </nav>
       <a class="location" href="https://www.facebook.com/profile.php?id=61593876778105" target="_blank" rel="noreferrer noopener">Across the United States</a>
+      <button id="account-button" class="account-button" type="button">Sign in</button>
     </header>
 
     <main>
@@ -71,6 +72,22 @@
       <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
         <button id="drawer-close" class="drawer-close" type="button" aria-label="Close product details">×</button>
         <div id="drawer-body"></div>
+      </div>
+    </div>
+
+    <div id="auth-modal" class="auth-modal" hidden>
+      <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button id="auth-close" class="drawer-close" type="button" aria-label="Close account dialog">×</button>
+        <p class="eyebrow">Your Malabis account</p>
+        <h2 id="auth-title">Sign in to save your finds.</h2>
+        <p id="auth-message" class="auth-message">Create an account to keep your cart and checkout details together.</p>
+        <form id="auth-form" class="auth-form">
+          <label><span>Email</span><input id="auth-email" type="email" autocomplete="email" required /></label>
+          <label><span>Password</span><input id="auth-password" type="password" minlength="6" autocomplete="current-password" required /></label>
+          <button id="auth-submit" class="shop-link" type="submit">Sign in</button>
+        </form>
+        <button id="google-auth" class="google-button" type="button">Continue with Google</button>
+        <button id="auth-mode" class="auth-switch" type="button">Need an account? Register</button>
       </div>
     </div>
     <script type="module" src="/app.js"></script>

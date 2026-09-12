@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import 'dotenv/config';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +49,12 @@ async function handle(url: URL, response: import('node:http').ServerResponse): P
 
     case '/api/config':
       return sendJson(response, 200, { liveScraping: liveScrapingEnabled });
+
+    case '/api/auth-config':
+      return sendJson(response, 200, {
+        supabaseUrl: process.env.SUPABASE_URL ?? null,
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? null,
+      });
 
     case '/api/brands':
       return sendJson(response, 200, {
