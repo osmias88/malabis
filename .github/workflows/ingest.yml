@@ -2,7 +2,7 @@ name: Refresh product catalog
 
 on:
   schedule:
-    - cron: '17 */2 * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       brand:
@@ -20,7 +20,7 @@ on:
       limit:
         description: Maximum products per brand
         required: true
-        default: '100'
+        default: '200'
         type: string
 
 permissions:
@@ -34,13 +34,13 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     environment: malabis
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       INGEST_BRAND: ${{ inputs.brand || 'all' }}
-      INGEST_LIMIT: ${{ inputs.limit || '100' }}
+      INGEST_LIMIT: ${{ inputs.limit || '200' }}
 
     steps:
       - name: Check out repository

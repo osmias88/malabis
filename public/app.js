@@ -111,7 +111,7 @@ function signInWithGoogle() {
 
 async function loadCatalogue() {
   try {
-    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=500')]);
+    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=1000')]);
     state.brands = brands;
     state.products = result.products;
     state.fx = result.fx;
@@ -278,14 +278,29 @@ function categoryShowcase(products) {
     groups.get(category).push(product);
   }
 
+  const small = [];
   const sections = [...groups.entries()]
-    .filter(([, items]) => items.length >= 2)
+    .filter(([category, items]) => {
+      if (category === 'More to discover' || items.length < 4) {
+        small.push(...items);
+        return false;
+      }
+      return true;
+    })
     .sort((left, right) => right[1].length - left[1].length)
     .map(([category, items]) => `
       <section class="category-section" aria-labelledby="category-${slugify(category)}">
         <button class="category-heading category-filter" type="button" data-category="${escape(category)}"><h3 id="category-${slugify(category)}">${escape(category)}</h3><span>View ${items.length} pieces →</span></button>
         <div class="category-grid">${items.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
       </section>`);
+
+  if (small.length) {
+    sections.push(`
+      <section class="category-section" aria-labelledby="category-more-to-discover">
+        <button class="category-heading category-filter" type="button" data-category="More to discover"><h3 id="category-more-to-discover">More to discover</h3><span>View ${small.length} pieces →</span></button>
+        <div class="category-grid">${small.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
+      </section>`);
+  }
 
   return sections.length ? sections.join('') : productGrid(products);
 }
