@@ -74,6 +74,7 @@ alter table products add column if not exists images jsonb not null default '[]'
 alter table products add column if not exists active boolean not null default true;
 alter table products add column if not exists first_seen_at timestamptz not null default now();
 alter table products add column if not exists last_seen_at timestamptz;
+alter table products add column if not exists source_updated_at timestamptz;
 
 create table if not exists variants (
   id uuid primary key default gen_random_uuid(),

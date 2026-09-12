@@ -65,6 +65,7 @@ export const ProductSchema = z.object({
   /** Source adapter that produced the record, for provenance/debugging. */
   source: z.string(),
   scrapedAt: z.string().datetime(),
+  sourceUpdatedAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 export type Product = z.infer<typeof ProductSchema>;
 

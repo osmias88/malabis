@@ -46,6 +46,7 @@ interface ShopifyProduct {
   description?: string | null;
   vendor?: string | null;
   product_type?: string | null;
+  updated_at?: string;
   type?: string | null;
   tags?: string[] | string;
   options?: Array<ShopifyOption | string>;
@@ -199,6 +200,7 @@ export class ShopifyAdapter implements ScraperAdapter {
       variants,
       source: this.name,
       scrapedAt: new Date().toISOString(),
+      sourceUpdatedAt: raw.updated_at ?? null,
     };
   }
 }

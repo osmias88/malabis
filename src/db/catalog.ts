@@ -24,7 +24,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
       .from('products')
       .select(`
         external_id, handle, title, description, url, product_type, vendor,
-        tags, images, source, price_min, price_max, currency, stock_status, scraped_at,
+        tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
         active,
         brands!inner(key, name),
         variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
@@ -107,6 +107,7 @@ function toProduct(row: Record<string, unknown>): Product {
     variants,
     source: String(row.source),
     scrapedAt: String(row.scraped_at),
+    sourceUpdatedAt: row.source_updated_at ? String(row.source_updated_at) : null,
   };
 }
 

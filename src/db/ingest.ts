@@ -111,6 +111,7 @@ async function persistProducts(brandId: string, products: Product[]): Promise<vo
           currency: product.currency,
           stock_status: product.stockStatus,
           scraped_at: product.scrapedAt,
+          source_updated_at: product.sourceUpdatedAt ?? null,
           active: true,
           last_seen_at: product.scrapedAt,
         })), { onConflict: 'brand_id,handle' })
