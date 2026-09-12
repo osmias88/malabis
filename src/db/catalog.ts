@@ -30,6 +30,10 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
 
   if (brandKey) query = query.eq('brands.key', brandKey);
   else query = query.in('brands.key', BRANDS.map((brand) => brand.key));
+    query = query
+      .neq('stock_status', 'out_of_stock')
+      .not('title', 'ilike', '%brief%')
+      .not('product_type', 'ilike', '%brief%');
   const { data, error } = await query;
 
   if (error) throw new Error(`Could not load catalog: ${error.message}`);
