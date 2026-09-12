@@ -58,8 +58,8 @@ button,input,select { font:inherit; }
 .notice { padding:40px; text-align:center; color:var(--muted); background:var(--white); border:1px solid var(--line); }
 .notice.error { color:var(--vermilion); }
 .product-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:34px 16px; }
-.category-showcase { display:grid; gap:58px; }
-.category-section { min-width:0; }
+.category-showcase { display:flex; flex-direction:column; gap:58px; width:100%; }
+.category-section { display:block; width:100%; min-width:0; }
 .category-heading { width:100%; display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:18px; border:0; border-bottom:1px solid var(--line); padding:0 0 10px; background:transparent; color:var(--ink); cursor:pointer; text-align:left; }
 .category-heading h3 { margin:0; font:500 28px/1.1 var(--font-display); }
 .category-heading span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
