@@ -69,9 +69,9 @@ function hydrateFilters() {
 
 function updateDependentFilters() {
   if (dom.brand.value === 'all') {
-    dom.category.innerHTML = '<option value="all">Choose label first</option>';
+    dom.category.innerHTML = '<option value="all">Choose brand first</option>';
     dom.category.disabled = true;
-    dom.size.innerHTML = '<option value="all">Choose label first</option>';
+    dom.size.innerHTML = '<option value="all">Choose brand first</option>';
     dom.size.disabled = true;
     dom.sizeReference.hidden = true;
     return;
@@ -168,7 +168,7 @@ function openDetail(key) {
   dom.drawerBody.innerHTML = `<div class="detail-layout"><div class="detail-gallery">${product.images.slice(0, 4).map((image) => `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" />`).join('')}</div>
     <div class="detail-copy"><p class="eyebrow">${escape(cleanBrand(product.brandName))}</p><h2 id="drawer-title">${escape(product.title)}</h2><p class="detail-price">${money(product.priceMin)}</p>
     ${product.description ? `<p class="description">${escape(product.description.slice(0, 600))}</p>` : ''}<div class="variant-list">${variants}</div>
-    <div class="detail-actions"><a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a><a class="size-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">Open official product sizing ↗</a></div><p class="detail-note">Purchases and official sizing details are provided on the label’s product page.</p></div></div>`;
+    <div class="detail-actions"><a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a><a class="size-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">Open official product sizing ↗</a></div><p class="detail-note">Purchases and official sizing details are provided on the brand’s product page.</p></div></div>`;
   dom.drawer.hidden = false;
   document.body.classList.add('drawer-open');
 }
