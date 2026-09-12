@@ -131,8 +131,7 @@ async function loadCatalogue() {
 function renderHeroReel() {
   const featured = [...state.products]
     .filter((product) => product.images[0]?.url)
-    .sort((left, right) => recommendationScore(right) - recommendationScore(left))
-    .slice(0, 20);
+    .sort((left, right) => recommendationScore(right) - recommendationScore(left));
 
   dom.heroReel.innerHTML = featured.map((product, index) => `
     <figure class="hero-scene" style="--scene:${index}">
@@ -253,9 +252,8 @@ function categoryShowcase(products) {
   }
 
   const sections = [...groups.entries()]
-    .filter(([, items]) => items.length >= 3)
+    .filter(([, items]) => items.length >= 2)
     .sort((left, right) => right[1].length - left[1].length)
-    .slice(0, 7)
     .map(([category, items]) => `
       <section class="category-section" aria-labelledby="category-${slugify(category)}">
         <div class="category-heading"><h3 id="category-${slugify(category)}">${escape(category)}</h3><span>Top ${Math.min(12, items.length)}</span></div>
@@ -271,6 +269,11 @@ function customerCategory(product) {
   if (/fragrance|perfume|body spray|deodorant/.test(text)) return 'Fragrances';
   if (/footwear|shoe|pump|sandal|chappal|loafer/.test(text)) return 'Footwear';
   if (/accessor|bag|jewell|jewellery|scarf|dupatta/.test(text)) return 'Accessories';
+  if (/dress|maxi|kaftan/.test(text)) return 'Dresses';
+  if (/suit|ensemble|set|co-ord|coord/.test(text)) return 'Suits & sets';
+  if (/kurta|kameez|shalwar|kurti/.test(text)) return 'Kurtas';
+  if (/trouser|pant|skirt|shorts|bottom/.test(text)) return 'Bottoms';
+  if (/blouse|shirt|top|tee/.test(text)) return 'Tops';
   if (/western|trouser|blazer|jeans|top|shirt|shorts/.test(text)) return 'Western';
   if (/festive|bridal|formal|wedding/.test(text)) return 'Festive';
   if (/lawn|pret|fusion|eastern|stitched|unstitched|kameez|kurta|shalwar/.test(text)) return 'Eastern wear';
