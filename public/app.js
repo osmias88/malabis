@@ -338,14 +338,10 @@ function customerCategory(product) {
   if (/fragrance|perfume|body spray|deodorant/.test(text)) return 'Fragrances';
   if (/footwear|shoe|pump|sandal|chappal|loafer/.test(text)) return 'Footwear';
   if (/accessor|bag|jewell|jewellery|scarf|dupatta/.test(text)) return 'Accessories';
+  if (/western|trouser|pant|skirt|shorts|bottom|blouse|shirt|top|tee|blazer|jeans/.test(text)) return 'Western';
   if (/dress|maxi|kaftan/.test(text)) return 'Dresses';
-  if (/suit|ensemble|set|co-ord|coord/.test(text)) return 'Suits & sets';
-  if (/kurta|kameez|shalwar|kurti/.test(text)) return 'Kurtas';
-  if (/trouser|pant|skirt|shorts|bottom/.test(text)) return 'Bottoms';
-  if (/blouse|shirt|top|tee/.test(text)) return 'Tops';
-  if (/western|trouser|blazer|jeans|top|shirt|shorts/.test(text)) return 'Western';
   if (/festive|bridal|formal|wedding/.test(text)) return 'Festive';
-  if (/lawn|pret|fusion|eastern|stitched|unstitched|kameez|kurta|shalwar/.test(text)) return 'Eastern wear';
+  if (/lawn|pret|fusion|eastern|stitched|unstitched|suit|ensemble|set|co-ord|coord|kameez|kurta|shalwar|kurti/.test(text)) return 'Eastern wear';
   return 'More to discover';
 }
 
