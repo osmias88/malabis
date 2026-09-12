@@ -82,6 +82,11 @@ inventory, timestamps, and stock history without rewriting full metadata. The
 scheduled workflow runs stock refreshes hourly and a full catalog refresh daily
 at 03:00 UTC.
 
+Catalog mode compares Shopify `source_updated_at` values with the last stored
+source timestamp. Unchanged products keep their existing metadata and history;
+only lifecycle timestamps are refreshed. New or changed products are written
+through the full batched path.
+
 ## Scheduled ingestion
 
 `.github/workflows/ingest.yml` refreshes every active brand hourly at 17 minutes

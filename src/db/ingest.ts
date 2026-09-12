@@ -90,7 +90,26 @@ async function startRun(brandId: string): Promise<string> {
 }
 
 async function persistProducts(brandId: string, products: Product[]): Promise<void> {
-  for (const batch of chunk(products, 50)) {
+  const existing = await loadExistingProducts(brandId);
+  const unchanged: Array<{ id: string; scrapedAt: string }> = [];
+  const changed = products.filter((product) => {
+    const current = existing.get(product.handle);
+    const isUnchanged = Boolean(
+      current &&
+      product.sourceUpdatedAt &&
+      current.sourceUpdatedAt === product.sourceUpdatedAt,
+    );
+    if (isUnchanged && current) unchanged.push({ id: current.id, scrapedAt: product.scrapedAt });
+    return !isUnchanged;
+  });
+
+  for (const batch of chunk(unchanged, 100)) {
+    await Promise.all(batch.map(({ id, scrapedAt }) =>
+      supabaseAdmin.from('products').update({ active: true, last_seen_at: scrapedAt }).eq('id', id),
+    ));
+  }
+
+  for (const batch of chunk(changed, 50)) {
     const { data: productRows, error: productError } = await retryDatabase(async () =>
       await supabaseAdmin
         .from('products')
@@ -274,4 +293,16 @@ async function deactivateMissingProducts(brandId: string, runStartedAt: string):
     .lt('last_seen_at', runStartedAt);
 
   if (error) throw new Error(`Could not mark missing products inactive: ${error.message}`);
+}
+
+async function loadExistingProducts(brandId: string): Promise<Map<string, { id: string; sourceUpdatedAt: string | null }>> {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select('id, handle, source_updated_at')
+    .eq('brand_id', brandId);
+  if (error) throw new Error(`Could not load existing products: ${error.message}`);
+  return new Map((data ?? []).map((row) => [String(row.handle), {
+    id: String(row.id),
+    sourceUpdatedAt: row.source_updated_at ? String(row.source_updated_at) : null,
+  }]));
 }
