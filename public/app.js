@@ -228,7 +228,8 @@ function render() {
   if (dom.sort.value === 'title') products = [...products].sort((a, b) => a.title.localeCompare(b.title));
   if (dom.sort.value === 'newest') products = [...products].sort((a, b) => b.scrapedAt.localeCompare(a.scrapedAt));
 
-  dom.count.textContent = `${products.length} ${products.length === 1 ? 'piece' : 'pieces'}`;
+  const scope = dom.brand.value === 'all' ? 'across all brands' : `from ${cleanBrand(state.brands.find((brand) => brand.key === dom.brand.value)?.name ?? 'this brand')}`;
+  dom.count.textContent = `${products.length} ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
   dom.grid.innerHTML = products.length ? products.map(productCard).join('') : '<div class="empty"><strong>No pieces found</strong><span>Try changing a filter or search term.</span></div>';
   for (const card of dom.grid.querySelectorAll('.product-card')) {
     card.addEventListener('click', () => openDetail(card.dataset.key));
