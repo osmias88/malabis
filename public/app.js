@@ -3,7 +3,8 @@ const state = { products: [], brands: [], fx: null };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
-  updated: el('updated'), status: el('status'), grid: el('grid'), drawer: el('drawer'), drawerBody: el('drawer-body'),
+  updated: el('updated'), status: el('status'), grid: el('grid'), heroReel: el('hero-reel'),
+  drawer: el('drawer'), drawerBody: el('drawer-body'),
 };
 
 const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited sizes', out_of_stock: 'Sold out', unknown: 'Check availability' };
@@ -27,6 +28,7 @@ async function loadCatalogue() {
     state.brands = brands;
     state.products = result.products;
     state.fx = result.fx;
+    renderHeroReel();
     hydrateFilters();
     render();
     dom.grid.setAttribute('aria-busy', 'false');
@@ -37,6 +39,19 @@ async function loadCatalogue() {
     dom.status.classList.add('error');
     console.error(error);
   }
+}
+
+function renderHeroReel() {
+  const featured = state.brands
+    .map((brand) => state.products.find((product) => product.brandKey === brand.key && product.images[0]?.url))
+    .filter(Boolean);
+
+  dom.heroReel.innerHTML = featured.map((product, index) => `
+    <figure class="hero-scene" style="--scene:${index}">
+      <img src="${escape(product.images[0].url)}" alt="" />
+      <figcaption><span>${escape(cleanBrand(product.brandName))}</span><strong>${escape(product.title)}</strong></figcaption>
+    </figure>`).join('');
+  dom.heroReel.style.setProperty('--scene-count', featured.length || 1);
 }
 
 function hydrateFilters() {
