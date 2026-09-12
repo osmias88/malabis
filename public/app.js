@@ -112,8 +112,14 @@ function signInWithGoogle() {
 
 async function loadCatalogue() {
   try {
-    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=2000')]);
+    const { brands } = await getJson('/api/brands');
     state.brands = brands;
+    const heroResult = await getJson('/api/catalog?limit=5');
+    state.products = heroResult.products;
+    state.fx = heroResult.fx;
+    renderHeroReel();
+
+    const result = await getJson('/api/catalog?limit=2000');
     state.products = result.products;
     state.fx = result.fx;
     renderHeroReel();
