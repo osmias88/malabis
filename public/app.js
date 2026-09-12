@@ -21,11 +21,7 @@ const dom = {
   authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
   googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
   categoryShowcaseContainer: el('category-showcase-container'),
-  categorySlider: el('category-slider'),
-  categoryTrack: el('category-track'),
-  catPrevBtn: el('cat-prev-btn'),
-  catNextBtn: el('cat-next-btn'),
-  catDots: el('cat-dots'),
+  categoryList: el('category-list'),
   breadcrumbs: el('breadcrumbs'),
   backToHome: el('back-to-home'),
   breadcrumbDept: el('breadcrumb-dept'),
@@ -416,7 +412,7 @@ function render() {
     dom.browsingBar.hidden = true;
     dom.sizeReference.hidden = true;
     dom.grid.hidden = true;
-    renderCategorySlider();
+    renderCategoryList();
     dom.categoryShowcaseContainer.hidden = false;
     return;
   }
@@ -516,12 +512,7 @@ function closeFilterDrawer() {
   if (dom.headerFilterBtn) dom.headerFilterBtn.setAttribute('aria-expanded', 'false');
 }
 
-let categorySlideIndex = 0;
-let categorySliderTimer = null;
-
-function renderCategorySlider() {
-  if (categorySliderTimer) window.clearInterval(categorySliderTimer);
-
+function renderCategoryList() {
   const tilesWithData = FEATURED_TILES.map((tile) => {
     const matching = state.products.filter(tile.match);
     if (!matching.length) return null;
@@ -531,77 +522,46 @@ function renderCategorySlider() {
   }).filter(Boolean);
 
   if (!tilesWithData.length) {
-    dom.categoryTrack.innerHTML = '';
+    dom.categoryList.innerHTML = '';
     return;
   }
 
-  dom.categoryTrack.innerHTML = tilesWithData.map((tile, idx) => `
-    <div class="category-slide-item ${idx === categorySlideIndex ? 'is-active' : ''}" data-dept="${escape(tile.dept)}" data-sub="${escape(tile.sub)}" data-idx="${idx}">
-      <article class="category-hero-card" tabindex="0">
-        <figure class="category-hero-figure">
-          ${tile.image ? `<img loading="${idx === 0 ? 'eager' : 'lazy'}" src="${escape(tile.image)}" alt="${escape(tile.title)}" />` : '<span class="image-fallback">M</span>'}
-          <div class="category-hero-overlay">
-            <span class="category-hero-tag">${tile.matchingCount} Pieces Available</span>
-            <h3 class="category-hero-title">${escape(tile.title)}</h3>
-            <p class="category-hero-subtitle">${escape(tile.subtitle)}</p>
-            <span class="category-hero-btn">Browse Collection ↗</span>
-          </div>
-        </figure>
-      </article>
-    </div>
+  dom.categoryList.innerHTML = tilesWithData.map((tile, idx) => `
+    <article class="category-banner-card" tabindex="0" data-dept="${escape(tile.dept)}" data-sub="${escape(tile.sub)}" data-idx="${idx}">
+      <figure class="category-banner-figure">
+        ${tile.image ? `<img loading="${idx < 2 ? 'eager' : 'lazy'}" src="${escape(tile.image)}" alt="${escape(tile.title)}" />` : '<span class="image-fallback">M</span>'}
+        <div class="category-banner-overlay">
+          <span class="category-banner-tag">${tile.matchingCount} Pieces Available</span>
+          <h3 class="category-banner-title">${escape(tile.title)}</h3>
+          <p class="category-banner-subtitle">${escape(tile.subtitle)}</p>
+          <span class="category-banner-btn">Explore Collection ↗</span>
+        </div>
+      </figure>
+    </article>
   `).join('');
 
-  dom.catDots.innerHTML = tilesWithData.map((_, idx) => `
-    <button class="cat-dot ${idx === categorySlideIndex ? 'is-active' : ''}" type="button" data-idx="${idx}" aria-label="Go to category ${idx + 1}"></button>
-  `).join('');
+  // Setup scroll-triggered smooth reveal transition
+  const cards = dom.categoryList.querySelectorAll('.category-banner-card');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
 
-  function updateSlide(newIdx) {
-    categorySlideIndex = (newIdx + tilesWithData.length) % tilesWithData.length;
-    dom.categoryTrack.style.transform = `translateX(-${categorySlideIndex * 100}%)`;
-
-    const items = dom.categoryTrack.querySelectorAll('.category-slide-item');
-    items.forEach((item, i) => item.classList.toggle('is-active', i === categorySlideIndex));
-
-    const dots = dom.catDots.querySelectorAll('.cat-dot');
-    dots.forEach((dot, i) => dot.classList.toggle('is-active', i === categorySlideIndex));
+    cards.forEach((card) => observer.observe(card));
+  } else {
+    cards.forEach((card) => card.classList.add('is-visible'));
   }
 
-  dom.catPrevBtn.onclick = (e) => { e.stopPropagation(); updateSlide(categorySlideIndex - 1); };
-  dom.catNextBtn.onclick = (e) => { e.stopPropagation(); updateSlide(categorySlideIndex + 1); };
-
-  dom.catDots.querySelectorAll('.cat-dot').forEach((dot) => {
-    dot.onclick = () => updateSlide(Number(dot.dataset.idx));
-  });
-
-  // Auto-advance categories every 4.5s
-  categorySliderTimer = window.setInterval(() => {
-    updateSlide(categorySlideIndex + 1);
-  }, 4500);
-
-  // Pause on hover
-  dom.categorySlider.onmouseenter = () => { if (categorySliderTimer) window.clearInterval(categorySliderTimer); };
-  dom.categorySlider.onmouseleave = () => {
-    if (categorySliderTimer) window.clearInterval(categorySliderTimer);
-    categorySliderTimer = window.setInterval(() => updateSlide(categorySlideIndex + 1), 4500);
-  };
-
-  // Touch Swipe for Category Slider
-  let cStartX = 0;
-  let cEndX = 0;
-  dom.categorySlider.ontouchstart = (e) => { cStartX = e.changedTouches[0].screenX; };
-  dom.categorySlider.ontouchend = (e) => {
-    cEndX = e.changedTouches[0].screenX;
-    if (Math.abs(cEndX - cStartX) > 40) {
-      if (cEndX < cStartX) updateSlide(categorySlideIndex + 1);
-      else updateSlide(categorySlideIndex - 1);
-    }
-  };
-
-  // Clicking any card opens that category
-  dom.categoryTrack.querySelectorAll('.category-slide-item').forEach((item) => {
+  // Clicking any card transitions to that collection view
+  cards.forEach((card) => {
     const handleSelect = () => {
-      state.department = item.dataset.dept;
-      state.subCategory = item.dataset.sub;
+      state.department = card.dataset.dept;
+      state.subCategory = card.dataset.sub;
       dom.brand.value = 'all';
       dom.category.value = 'all';
       dom.size.value = 'all';
@@ -610,11 +570,9 @@ function renderCategorySlider() {
       render();
       document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
-    item.addEventListener('click', handleSelect);
-    item.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSelect(); });
+    card.addEventListener('click', handleSelect);
+    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSelect(); });
   });
-
-  updateSlide(categorySlideIndex);
 }
 
 function renderBreadcrumbs() {
