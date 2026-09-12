@@ -223,6 +223,7 @@ function render() {
     return [product.title, product.brandName, product.productType, product.vendor, ...product.tags].filter(Boolean).join(' ').toLowerCase().includes(term);
   });
 
+  if (dom.sort.value === 'recommended') products = [...products].sort((a, b) => recommendationScore(b) - recommendationScore(a));
   if (dom.sort.value === 'price-asc') products = [...products].sort((a, b) => a.priceMin.amount - b.priceMin.amount);
   if (dom.sort.value === 'price-desc') products = [...products].sort((a, b) => b.priceMin.amount - a.priceMin.amount);
   if (dom.sort.value === 'title') products = [...products].sort((a, b) => a.title.localeCompare(b.title));
@@ -260,6 +261,27 @@ function availabilitySummary(product) {
   return parts.join(' · ');
 }
 
+function recommendationScore(product) {
+  const ageDays = Math.max(0, (Date.now() - Date.parse(product.scrapedAt)) / 86400000);
+  const newness = Math.max(0, 1 - ageDays / 30);
+  const stock = product.stockStatus === 'in_stock' ? 1 : product.stockStatus === 'partially_in_stock' ? 0.65 : 0;
+  const discount = product.variants.reduce((best, variant) => {
+    if (!variant.compareAtPrice?.amount || !variant.price.amount) return best;
+    return Math.max(best, 1 - variant.price.amount / variant.compareAtPrice.amount);
+  }, 0);
+  const imageQuality = product.images.length >= 4 ? 1 : product.images.length >= 2 ? 0.7 : product.images.length ? 0.4 : 0;
+  const demandProxy = demandProxyScore(product);
+
+  return newness * 0.25 + stock * 0.25 + Math.min(discount, 0.5) * 0.2 + imageQuality * 0.15 + demandProxy * 0.15;
+}
+
+function demandProxyScore(product) {
+  const text = [product.title, product.productType, product.vendor, ...product.tags].filter(Boolean).join(' ').toLowerCase();
+  const signals = ['new', 'festive', 'formal', 'lawn', 'kurta', 'suit', 'stitched', 'western', 'wedding', 'best seller', 'bestseller'];
+  const matches = signals.filter((signal) => text.includes(signal)).length;
+  return Math.min(1, matches / 3);
+}
+
 function openDetail(key) {
   const product = state.products.find((item) => productKey(item) === key);
   if (!product) return;
@@ -273,7 +295,7 @@ function openDetail(key) {
 }
 
 function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
-function clearFilters() { dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'newest'; dom.inStock.checked = false; updateDependentFilters(); render(); }
+function clearFilters() { dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'recommended'; dom.inStock.checked = false; updateDependentFilters(); render(); }
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }

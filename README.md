@@ -121,6 +121,11 @@ Public deployments disable `/api/scrape` and `/api/compare` by default and
 only expose the saved Supabase catalogue. Local development keeps live tools
 enabled. Set `ENABLE_LIVE_SCRAPING=true` only on a trusted deployment.
 
+The public catalogue defaults to **Recommended** sorting. Its current score
+uses recency, stock quality, discount, image completeness, and a conservative
+demand proxy derived from product metadata. Actual popularity and demand will
+replace those proxies once click, save, and cart events are collected.
+
 ## Price comparison
 
 `compare` scrapes a baseline market, resolves the identical SKU in the other
