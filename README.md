@@ -74,7 +74,8 @@ Useful flags: `--concurrency`, `--format json,csv`, `--out <dir>`,
 
 ## Scheduled ingestion
 
-`.github/workflows/ingest.yml` refreshes every active brand daily at 02:30 UTC.
+`.github/workflows/ingest.yml` refreshes every active brand every two hours,
+starting at 00:17 UTC.
 It can also be started manually from **GitHub → Actions → Refresh product
 catalog → Run workflow**, where a brand and product limit can be selected.
 
@@ -86,7 +87,7 @@ workflow:
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-The scheduled run ingests up to 25 products per brand. Scrape failures are
+The scheduled run ingests up to 100 products per brand. Scrape failures are
 recorded in `scrape_runs`, and a failing brand does not prevent later brands
 from being attempted.
 

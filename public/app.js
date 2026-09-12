@@ -1,5 +1,5 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [] };
+const state = { products: [], brands: [], fx: null };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
@@ -7,7 +7,12 @@ const dom = {
 };
 
 const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited sizes', out_of_stock: 'Sold out', unknown: 'Check availability' };
-const money = (value) => `${value.currency} ${(value.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const money = (value) => new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: value.currency,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+}).format(value.amount / 100);
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -18,9 +23,10 @@ async function getJson(url) {
 
 async function loadCatalogue() {
   try {
-    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=100')]);
+    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=500')]);
     state.brands = brands;
     state.products = result.products;
+    state.fx = result.fx;
     hydrateFilters();
     render();
     dom.grid.setAttribute('aria-busy', 'false');
@@ -40,9 +46,13 @@ function hydrateFilters() {
   const sizes = unique(state.products.flatMap((product) => product.variants.map((variant) => variant.size).filter(Boolean))).sort(sizeSort);
   dom.size.insertAdjacentHTML('beforeend', sizes.map((size) => `<option value="${escape(size)}">${escape(size)}</option>`).join(''));
   const latest = Math.max(...state.products.map((product) => Date.parse(product.scrapedAt)));
-  dom.updated.textContent = Number.isFinite(latest)
-    ? `Catalogue updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)}`
-    : 'Current catalogue';
+  const catalogDate = Number.isFinite(latest)
+    ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)
+    : 'recently';
+  const rate = state.fx
+    ? ` · USD rate ${state.fx.source === 'live' ? 'live' : 'estimated'} at PKR ${state.fx.pkrPerUsd.toFixed(2)}`
+    : '';
+  dom.updated.textContent = `Catalogue updated ${catalogDate}${rate}`;
 }
 
 function render() {
