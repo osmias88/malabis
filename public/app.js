@@ -129,14 +129,15 @@ async function loadCatalogue() {
 }
 
 function renderHeroReel() {
-  const featured = state.brands
-    .map((brand) => state.products.find((product) => product.brandKey === brand.key && product.images[0]?.url))
-    .filter(Boolean);
+  const featured = [...state.products]
+    .filter((product) => product.images[0]?.url)
+    .sort((left, right) => recommendationScore(right) - recommendationScore(left))
+    .slice(0, 20);
 
   dom.heroReel.innerHTML = featured.map((product, index) => `
     <figure class="hero-scene" style="--scene:${index}">
       <img src="${escape(product.images[0].url)}" alt="" />
-      <figcaption><span>${escape(cleanBrand(product.brandName))}</span><strong>${escape(product.title)}</strong></figcaption>
+      <figcaption><span>${escape(cleanBrand(product.brandName))}</span><a href="${escape(product.url)}" target="_blank" rel="noreferrer noopener"><strong>${escape(product.title)}</strong><em>View piece ↗</em></a></figcaption>
     </figure>`).join('');
   dom.heroReel.style.setProperty('--scene-count', featured.length || 1);
 }
