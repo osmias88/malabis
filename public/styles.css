@@ -16,11 +16,11 @@ button,input,select { font:inherit; }
 .site-nav a:hover,.site-nav a.current { color:var(--ink); border-color:var(--vermilion); }
 .location { justify-self:end; color:var(--forest); font-size:12px; font-weight:600; text-decoration:none; }
 .intro { min-height:430px; padding:clamp(52px,8vw,108px) clamp(20px,6vw,96px) 52px; display:grid; grid-template-columns:minmax(0,1.5fr) minmax(260px,.6fr); align-items:end; gap:clamp(40px,8vw,120px); position:relative; isolation:isolate; overflow:hidden; background:var(--white); border-bottom:1px solid var(--line); }
-.intro::after { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg,rgba(255,255,255,.99) 0%,rgba(255,255,255,.96) 35%,rgba(255,255,255,.78) 58%,rgba(255,255,255,.58) 100%); }
+.intro::after { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg,rgba(255,255,255,.96) 0%,rgba(255,255,255,.84) 34%,rgba(255,255,255,.18) 56%,rgba(255,255,255,.65) 68%,rgba(255,255,255,.88) 100%); }
 .intro-title,.intro-copy { position:relative; z-index:2; }
 .hero-reel { position:absolute; inset:0; z-index:-2; background:var(--soft); }
 .hero-scene { --duration:calc(var(--scene-count) * 5s); position:absolute; inset:0; margin:0; opacity:0; animation:hero-scene var(--duration) infinite; animation-delay:calc(var(--scene) * 5s); }
-.hero-scene img { width:100%; height:100%; display:block; object-fit:cover; object-position:center 28%; filter:saturate(.82) contrast(.92); animation:hero-drift var(--duration) infinite; animation-delay:calc(var(--scene) * 5s); }
+.hero-scene img { width:100%; height:100%; display:block; object-fit:cover; object-position:center 28%; filter:saturate(.98) contrast(1.02); animation:hero-drift var(--duration) infinite; animation-delay:calc(var(--scene) * 5s); }
 .hero-scene figcaption { position:absolute; right:clamp(20px,4vw,64px); top:28px; display:grid; justify-items:end; max-width:260px; padding:7px 9px; color:var(--ink); background:rgba(255,255,255,.68); text-align:right; }
 .hero-scene figcaption span { color:var(--vermilion); font-size:10px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; }
 .hero-scene figcaption strong { font:500 16px/1.25 var(--font-display); }
