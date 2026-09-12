@@ -1,5 +1,5 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null, heroTimer: null };
+const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null, heroTimer: null, heroSlideTimer: null };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
@@ -139,6 +139,24 @@ function renderHeroReel() {
       <figcaption><span>${escape(cleanBrand(product.brandName))}</span><a href="${escape(product.url)}" target="_blank" rel="noreferrer noopener"><strong>${escape(product.title)}</strong><em>View piece ↗</em></a></figcaption>
     </figure>`).join('');
   dom.heroReel.style.setProperty('--scene-count', featured.length || 1);
+  const scenes = [...dom.heroReel.querySelectorAll('.hero-scene')];
+  let currentScene = 0;
+  scenes[0]?.classList.add('is-active');
+  if (state.heroSlideTimer) window.clearInterval(state.heroSlideTimer);
+  state.heroSlideTimer = window.setInterval(() => {
+    if (scenes.length < 2) return;
+    const current = scenes[currentScene];
+    const nextIndex = (currentScene + 1) % scenes.length;
+    const next = scenes[nextIndex];
+    current.classList.remove('is-active');
+    current.classList.add('is-prev');
+    next.classList.remove('is-prev', 'is-active');
+    next.style.transform = 'translateX(100%)';
+    void next.offsetWidth;
+    next.style.transform = '';
+    next.classList.add('is-active');
+    currentScene = nextIndex;
+  }, 5000);
   if (state.heroTimer) window.clearInterval(state.heroTimer);
   let next = 4;
   state.heroTimer = window.setInterval(() => {
