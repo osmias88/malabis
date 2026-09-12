@@ -43,7 +43,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   const converter = await getUsdConverter();
   const products = batches.flat()
     .map(toProduct)
-    .filter((product) => !isUnstitched(product) && !isBrief(product))
+    .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product))
     .map((product) => convertProduct(product, converter));
   return {
     products,
@@ -153,4 +153,10 @@ function isBrief(product: Product): boolean {
   const text = [product.title, product.productType, product.url, ...product.tags]
     .filter(Boolean).join(' ').toLowerCase();
   return /\bbriefs?\b|\bunderwear\b|\bpanties\b|\bundershirt\b/.test(text);
+}
+
+function isFragrance(product: Product): boolean {
+  const text = [product.title, product.productType, product.url, ...product.tags]
+    .filter(Boolean).join(' ').toLowerCase();
+  return /fragrance|perfume|body mist|body spray|deodorant|attar|eau de|man-perfumes|womens-perfumes|body-mists|\/for_her\/|000000frl|000000frm|000000fpm|000000fpl|000000bmm|000000bml|\/fragrances\//.test(text);
 }

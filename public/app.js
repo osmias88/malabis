@@ -1,5 +1,17 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null, audience: 'all', heroTimer: null, heroSlideTimer: null };
+const state = {
+  products: [],
+  brands: [],
+  fx: null,
+  auth: null,
+  authConfig: null,
+  authMode: 'login',
+  department: 'all', // 'all' (homepage category tiles) | 'women' | 'men' | 'kids'
+  subCategory: 'all', // 'all' | specific subcategory name
+  heroTimer: null,
+  heroSlideTimer: null,
+};
+
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
@@ -9,6 +21,18 @@ const dom = {
   authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
   googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
   audienceTabs: el('audience-tabs'),
+  categoryTiles: el('category-tiles'),
+  breadcrumbs: el('breadcrumbs'),
+  backToHome: el('back-to-home'),
+  breadcrumbDept: el('breadcrumb-dept'),
+  breadcrumbSub: el('breadcrumb-sub'),
+  breadcrumbSubSep: el('breadcrumb-sub-separator'),
+  subcategoryBar: el('subcategory-bar'),
+  subcategoryPills: el('subcategory-pills'),
+  filterSection: el('filter-section'),
+  resultsHeader: el('results-header'),
+  catalogueEyebrow: el('catalogue-eyebrow'),
+  catalogueTitle: el('catalogue-title'),
 };
 
 const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited availability', out_of_stock: 'Sold out', unknown: 'Check availability' };
@@ -18,6 +42,111 @@ const money = (value) => new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 }).format(value.amount / 100);
+
+const DEPARTMENTS = {
+  women: {
+    label: 'Women',
+    eyebrow: "Women's Collection",
+    title: 'Women’s Pakistani Fashion',
+    subcategories: [
+      { id: 'all', label: 'All Women' },
+      { id: 'Eastern wear', label: 'Eastern Wear (Kurtas & Suits)' },
+      { id: 'Festive & Formal', label: 'Festive & Luxury Pret' },
+      { id: 'Western', label: 'Western & Co-ords' },
+      { id: 'Footwear', label: 'Footwear' },
+      { id: 'Accessories', label: 'Accessories & Dupattas' },
+      { id: 'Home & Living', label: 'Home & Living' },
+    ],
+  },
+  men: {
+    label: 'Men',
+    eyebrow: "Men's Collection",
+    title: 'Men’s Traditional & Modern Wear',
+    subcategories: [
+      { id: 'all', label: 'All Men' },
+      { id: 'Eastern wear', label: 'Eastern (Shalwar Kameez & Kurtas)' },
+      { id: 'Western', label: 'Western (Polos, Shirts & Blazers)' },
+      { id: 'Accessories', label: 'Accessories' },
+    ],
+  },
+  kids: {
+    label: 'Kids & Juniors',
+    eyebrow: "Kids' Collection",
+    title: 'Kids & Juniors Collection',
+    subcategories: [
+      { id: 'all', label: 'All Kids' },
+      { id: 'girls', label: 'Girls' },
+      { id: 'boys', label: 'Boys' },
+    ],
+  },
+};
+
+const FEATURED_TILES = [
+  {
+    id: 'women-eastern',
+    dept: 'women',
+    sub: 'Eastern wear',
+    title: "Women's Eastern Wear",
+    subtitle: 'Kurtas, Shalwar Kameez & Stitched Suits',
+    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Eastern wear',
+  },
+  {
+    id: 'women-festive',
+    dept: 'women',
+    sub: 'Festive & Formal',
+    title: 'Festive & Luxury Pret',
+    subtitle: 'Chiffon, Luxury Pret & Embroidered Formals',
+    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Festive & Formal',
+  },
+  {
+    id: 'men-eastern',
+    dept: 'men',
+    sub: 'Eastern wear',
+    title: "Men's Shalwar Kameez",
+    subtitle: 'Traditional Suits, Kurtas & Waistcoats',
+    match: (p) => productAudience(p) === 'men' && customerCategory(p) === 'Eastern wear',
+  },
+  {
+    id: 'men-western',
+    dept: 'men',
+    sub: 'Western',
+    title: "Men's Western & Blazers",
+    subtitle: 'Polos, Shirts, Blazers & Smart Casuals',
+    match: (p) => productAudience(p) === 'men' && customerCategory(p) === 'Western',
+  },
+  {
+    id: 'women-western',
+    dept: 'women',
+    sub: 'Western',
+    title: 'Western & Co-ords',
+    subtitle: 'Modern Tops, Trousers & Co-ord Sets',
+    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Western',
+  },
+  {
+    id: 'kids-all',
+    dept: 'kids',
+    sub: 'all',
+    title: 'Kids & Juniors',
+    subtitle: 'Festive & Casual Styles for Boys & Girls',
+    match: (p) => isKidsProduct(p),
+  },
+  {
+    id: 'footwear-accessories',
+    dept: 'women',
+    sub: 'Footwear',
+    title: 'Footwear & Accessories',
+    subtitle: 'Handcrafted Khussas, Flats, Bags & Dupattas',
+    match: (p) => customerCategory(p) === 'Footwear' || customerCategory(p) === 'Accessories',
+  },
+  {
+    id: 'home-living',
+    dept: 'women',
+    sub: 'Home & Living',
+    title: 'Home & Living',
+    subtitle: 'Artisanal Decor, Cushions & Table Accents',
+    match: (p) => customerCategory(p) === 'Home & Living',
+  },
+];
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -181,7 +310,7 @@ function renderHeroReel() {
 }
 
 function hydrateFilters() {
-  dom.brand.insertAdjacentHTML('beforeend', state.brands.map((brand) => `<option value="${escape(brand.key)}">${escape(cleanBrand(brand.name))}</option>`).join(''));
+  dom.brand.innerHTML = '<option value="all">All brands</option>' + state.brands.map((brand) => `<option value="${escape(brand.key)}">${escape(cleanBrand(brand.name))}</option>`).join('');
   updateDependentFilters();
   const latest = Math.max(...state.products.map((product) => Date.parse(product.scrapedAt)));
   const catalogDate = Number.isFinite(latest)
@@ -191,33 +320,28 @@ function hydrateFilters() {
 }
 
 function updateDependentFilters() {
-  if (dom.brand.value === 'all') {
-    dom.category.innerHTML = '<option value="all">Choose brand first</option>';
-    dom.category.disabled = true;
-    dom.size.innerHTML = '<option value="all">Choose brand first</option>';
-    dom.size.disabled = true;
-    dom.sizeReference.hidden = true;
-    return;
-  }
-
+  const departmentProducts = getDepartmentFilteredProducts();
   const brandProducts = dom.brand.value === 'all'
-    ? state.products
-    : state.products.filter((product) => product.brandKey === dom.brand.value);
+    ? departmentProducts
+    : departmentProducts.filter((product) => product.brandKey === dom.brand.value);
   const categories = unique(brandProducts.map((product) => customerCategory(product)).filter(Boolean)).sort();
   replaceOptions(dom.category, 'All categories', categories);
 
-  const categoryRequired = dom.brand.value !== 'all' && categories.length > 1 && dom.category.value === 'all';
   const categoryProducts = dom.category.value === 'all'
     ? brandProducts
     : brandProducts.filter((product) => customerCategory(product) === dom.category.value);
   const sizes = unique(categoryProducts.flatMap((product) => product.variants.map((variant) => variant.size).filter(isUsefulSize))).sort(sizeSort);
-  if (categoryRequired) {
-    dom.size.innerHTML = '<option value="all">Choose category first</option>';
-    dom.size.disabled = true;
-  } else {
-    replaceOptions(dom.size, 'All sizes', sizes);
-  }
-  renderSizeReference(categoryProducts, categoryRequired);
+  replaceOptions(dom.size, 'All sizes', sizes);
+  renderSizeReference(categoryProducts);
+}
+
+function getDepartmentFilteredProducts() {
+  return state.products.filter((product) => {
+    if (state.department === 'women') return productAudience(product) === 'women';
+    if (state.department === 'men') return productAudience(product) === 'men';
+    if (state.department === 'kids') return isKidsProduct(product);
+    return true;
+  });
 }
 
 function replaceOptions(select, allLabel, values) {
@@ -227,7 +351,7 @@ function replaceOptions(select, allLabel, values) {
   select.disabled = values.length === 0;
 }
 
-function renderSizeReference(products, categoryRequired) {
+function renderSizeReference(products) {
   if (dom.brand.value === 'all') {
     dom.sizeReference.hidden = true;
     return;
@@ -243,25 +367,66 @@ function renderSizeReference(products, categoryRequired) {
 
   dom.sizeReference.innerHTML = `
     <div><span>Official size reference</span><strong>${escape(cleanBrand(brand.name))}</strong></div>
-    <p>${categoryRequired ? 'Choose a category to see its relevant size system.' : sizes.length ? `Sizes currently listed: ${sizes.map(escape).join(' · ')}` : 'This category does not use clothing sizes.'}</p>
+    <p>${sizes.length ? `Sizes currently listed: ${sizes.map(escape).join(' · ')}` : 'This category does not use clothing sizes.'}</p>
     <a href="${escape(referenceProduct.url)}" target="_blank" rel="noreferrer noopener">Open official sizing on ${escape(cleanBrand(brand.name))} ↗</a>`;
   dom.sizeReference.hidden = false;
 }
 
 function render() {
   const term = dom.search.value.trim().toLowerCase();
+  const isHomepageView = state.department === 'all' && state.subCategory === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked;
+
+  updateAudienceTabs();
+  updateNavLinks();
+
+  if (isHomepageView) {
+    dom.catalogueEyebrow.textContent = 'Explore the Collections';
+    dom.catalogueTitle.textContent = 'Shop by Category';
+    dom.breadcrumbs.hidden = true;
+    dom.subcategoryBar.hidden = true;
+    dom.filterSection.hidden = true;
+    dom.sizeReference.hidden = true;
+    dom.resultsHeader.hidden = true;
+    dom.grid.hidden = true;
+    renderCategoryTiles();
+    dom.categoryTiles.hidden = false;
+    return;
+  }
+
+  // Browsing Mode: Vertical Grid Layout
+  dom.categoryTiles.hidden = true;
+  dom.breadcrumbs.hidden = false;
+  dom.filterSection.hidden = false;
+  dom.resultsHeader.hidden = false;
+  dom.grid.hidden = false;
+
+  renderBreadcrumbs();
+  renderSubcategoryPills();
+
   let products = state.products.filter((product) => {
-    if (state.homeCategory && customerCategory(product) !== state.homeCategory) return false;
-    if (state.audience !== 'all') {
-      const aud = productAudience(product);
-      if (state.audience === 'boys' && aud !== 'boys' && aud !== 'kids') return false;
-      if (state.audience === 'girls' && aud !== 'girls' && aud !== 'kids') return false;
-      if (state.audience !== 'boys' && state.audience !== 'girls' && aud !== state.audience) return false;
+    // Department filtering
+    if (state.department === 'women' && productAudience(product) !== 'women') return false;
+    if (state.department === 'men' && productAudience(product) !== 'men') return false;
+    if (state.department === 'kids' && !isKidsProduct(product)) return false;
+
+    // Subcategory pill filtering
+    if (state.subCategory !== 'all') {
+      if (state.department === 'kids') {
+        const aud = productAudience(product);
+        if (state.subCategory === 'girls' && aud !== 'girls') return false;
+        if (state.subCategory === 'boys' && aud !== 'boys') return false;
+      } else {
+        if (customerCategory(product) !== state.subCategory) return false;
+      }
     }
+
+    // Dropdown filters
     if (dom.brand.value !== 'all' && product.brandKey !== dom.brand.value) return false;
     if (dom.category.value !== 'all' && customerCategory(product) !== dom.category.value) return false;
     if (dom.size.value !== 'all' && !product.variants.some((variant) => variant.size === dom.size.value)) return false;
     if (dom.inStock.checked && !product.variants.some((variant) => variant.available)) return false;
+
+    // Text search
     if (!term) return true;
     return [product.title, product.brandName, product.productType, product.vendor, ...product.tags].filter(Boolean).join(' ').toLowerCase().includes(term);
   });
@@ -272,19 +437,53 @@ function render() {
   if (dom.sort.value === 'title') products = [...products].sort((a, b) => a.title.localeCompare(b.title));
   if (dom.sort.value === 'newest') products = [...products].sort((a, b) => b.scrapedAt.localeCompare(a.scrapedAt));
 
+  const deptInfo = DEPARTMENTS[state.department];
+  if (deptInfo) {
+    dom.catalogueEyebrow.textContent = deptInfo.eyebrow;
+    const activeSub = deptInfo.subcategories.find((s) => s.id === state.subCategory);
+    dom.catalogueTitle.textContent = activeSub && activeSub.id !== 'all' ? `${deptInfo.label} — ${activeSub.label}` : deptInfo.title;
+  } else {
+    dom.catalogueEyebrow.textContent = 'Browsing Collection';
+    dom.catalogueTitle.textContent = state.subCategory !== 'all' ? state.subCategory : 'All Products';
+  }
+
   const scope = dom.brand.value === 'all' ? 'across all brands' : `from ${cleanBrand(state.brands.find((brand) => brand.key === dom.brand.value)?.name ?? 'this brand')}`;
-  const isHomepage = !state.homeCategory && state.audience === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked && dom.sort.value === 'recommended';
-  const audienceScope = state.audience === 'all' ? '' : ` for ${state.audience}`;
-  dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}${audienceScope}`;
-  dom.grid.classList.toggle('category-showcase', isHomepage);
-  dom.grid.innerHTML = isHomepage ? categoryShowcase(products) : productGrid(products);
+  dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
+  dom.grid.innerHTML = productGrid(products);
+
   for (const card of dom.grid.querySelectorAll('.product-card')) {
     card.addEventListener('click', () => openDetail(card.dataset.key));
     card.addEventListener('keydown', (event) => { if (event.key === 'Enter') openDetail(card.dataset.key); });
   }
-  for (const button of dom.grid.querySelectorAll('.category-filter')) {
-    button.addEventListener('click', () => {
-      state.homeCategory = button.dataset.category;
+}
+
+function renderCategoryTiles() {
+  const cardsHtml = FEATURED_TILES.map((tile) => {
+    const matching = state.products.filter(tile.match);
+    if (!matching.length) return '';
+    const topItem = [...matching].sort((a, b) => recommendationScore(b) - recommendationScore(a))[0];
+    const image = topItem?.images[0]?.url;
+
+    return `
+      <article class="category-tile" tabindex="0" data-dept="${escape(tile.dept)}" data-sub="${escape(tile.sub)}">
+        <figure class="category-tile-figure">
+          ${image ? `<img loading="lazy" src="${escape(image)}" alt="${escape(tile.title)}" />` : '<span class="image-fallback">M</span>'}
+          <div class="category-tile-overlay">
+            <span class="category-tile-count">${matching.length} Pieces</span>
+            <h3 class="category-tile-title">${escape(tile.title)}</h3>
+            <p class="category-tile-subtitle">${escape(tile.subtitle)}</p>
+            <span class="category-tile-cta">Shop Collection ↗</span>
+          </div>
+        </figure>
+      </article>`;
+  }).filter(Boolean).join('');
+
+  dom.categoryTiles.innerHTML = cardsHtml;
+
+  for (const card of dom.categoryTiles.querySelectorAll('.category-tile')) {
+    const selectTile = () => {
+      state.department = card.dataset.dept;
+      state.subCategory = card.dataset.sub;
       dom.brand.value = 'all';
       dom.category.value = 'all';
       dom.size.value = 'all';
@@ -292,6 +491,76 @@ function render() {
       updateDependentFilters();
       render();
       document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    card.addEventListener('click', selectTile);
+    card.addEventListener('keydown', (event) => { if (event.key === 'Enter') selectTile(); });
+  }
+}
+
+function renderBreadcrumbs() {
+  const deptInfo = DEPARTMENTS[state.department];
+  if (deptInfo) {
+    dom.breadcrumbDept.textContent = deptInfo.label;
+    dom.breadcrumbDept.hidden = false;
+  } else {
+    dom.breadcrumbDept.textContent = 'All Products';
+    dom.breadcrumbDept.hidden = false;
+  }
+
+  if (state.subCategory !== 'all') {
+    const subLabel = deptInfo?.subcategories.find((s) => s.id === state.subCategory)?.label ?? state.subCategory;
+    dom.breadcrumbSub.textContent = subLabel;
+    dom.breadcrumbSub.hidden = false;
+    dom.breadcrumbSubSep.hidden = false;
+  } else {
+    dom.breadcrumbSub.hidden = true;
+    dom.breadcrumbSubSep.hidden = true;
+  }
+}
+
+function renderSubcategoryPills() {
+  const deptInfo = DEPARTMENTS[state.department];
+  if (!deptInfo) {
+    dom.subcategoryBar.hidden = true;
+    return;
+  }
+
+  dom.subcategoryBar.hidden = false;
+  const pillsHtml = deptInfo.subcategories.map((sub) => {
+    let count = 0;
+    if (sub.id === 'all') {
+      count = state.products.filter((p) => {
+        if (state.department === 'women') return productAudience(p) === 'women';
+        if (state.department === 'men') return productAudience(p) === 'men';
+        if (state.department === 'kids') return isKidsProduct(p);
+        return true;
+      }).length;
+    } else if (state.department === 'kids') {
+      count = state.products.filter((p) => isKidsProduct(p) && productAudience(p) === sub.id).length;
+    } else {
+      count = state.products.filter((p) => {
+        if (state.department === 'women' && productAudience(p) !== 'women') return false;
+        if (state.department === 'men' && productAudience(p) !== 'men') return false;
+        return customerCategory(p) === sub.id;
+      }).length;
+    }
+
+    const isActive = state.subCategory === sub.id;
+    return `<button class="subcategory-pill ${isActive ? 'is-active' : ''}" type="button" data-sub="${escape(sub.id)}" aria-selected="${isActive}">
+      <span>${escape(sub.label)}</span>
+      <span class="pill-count">${count}</span>
+    </button>`;
+  }).join('');
+
+  dom.subcategoryPills.innerHTML = pillsHtml;
+
+  for (const pill of dom.subcategoryPills.querySelectorAll('.subcategory-pill')) {
+    pill.addEventListener('click', () => {
+      state.subCategory = pill.dataset.sub;
+      dom.category.value = 'all';
+      dom.size.value = 'all';
+      updateDependentFilters();
+      render();
     });
   }
 }
@@ -299,48 +568,17 @@ function render() {
 function productGrid(products) {
   return products.length
     ? products.map(productCard).join('')
-    : '<div class="empty"><strong>No pieces found</strong><span>Try changing a filter or search term.</span></div>';
+    : '<div class="empty"><strong>No pieces found</strong><span>Try changing a filter or subcategory.</span></div>';
 }
 
-function categoryShowcase(products) {
-  const groups = new Map();
-  for (const product of products) {
-    const category = customerCategory(product);
-    if (!groups.has(category)) groups.set(category, []);
-    groups.get(category).push(product);
-  }
-
-  const small = [];
-  const sections = [...groups.entries()]
-    .filter(([category, items]) => {
-      if (category === 'More to discover' || items.length < 4) {
-        small.push(...items);
-        return false;
-      }
-      return true;
-    })
-    .sort((left, right) => right[1].length - left[1].length)
-    .map(([category, items]) => `
-      <section class="category-section" aria-labelledby="category-${slugify(category)}">
-        <div class="category-heading"><h3 id="category-${slugify(category)}">${escape(category)}</h3><button class="category-filter" type="button" data-category="${escape(category)}">View ${items.length} pieces →</button></div>
-        <div class="category-grid">${items.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
-      </section>`);
-
-  if (small.length) {
-    sections.push(`
-      <section class="category-section" aria-labelledby="category-more-to-discover">
-        <div class="category-heading"><h3 id="category-more-to-discover">More to discover</h3><button class="category-filter" type="button" data-category="More to discover">View ${small.length} pieces →</button></div>
-        <div class="category-grid">${small.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
-      </section>`);
-  }
-
-  return sections.length ? sections.join('') : productGrid(products);
+function isKidsProduct(product) {
+  const aud = productAudience(product);
+  return aud === 'kids' || aud === 'girls' || aud === 'boys' || customerCategory(product) === 'Kids';
 }
 
 function customerCategory(product) {
   const text = [product.productType, product.title, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
   if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b|\bboy\b|\bgirl\b|\bboys\b|\bgirls\b/.test(text)) return 'Kids';
-  if (/fragrance|perfume|body mist|body spray|deodorant|attar|eau de|man-perfumes|womens-perfumes|body-mists|\/for_her\/|000000frl|000000frm|000000fpm|000000fpl|000000bmm|000000bml/.test(text)) return 'Fragrances';
   if (/footwear|shoe|shoes|pump|pumps|sandal|sandals|chappal|loafer|loafers|flats?|mules?|khussa|kolhapuri|sneaker|sneakers|heel|heels|slippers?/.test(text)) return 'Footwear';
   if (/cushion|table runner|dummy book|candle|diffuser|tray|coaster|vase|pottery|plate|bowl|platter|home decor|bedding|quilt|pillow|gift box|tissue box|\bobjects\b|\bhome\b|\bmugs?\b/.test(text)) return 'Home & Living';
   if (/accessor|bag|bags|clutch|tote|wallet|jewell|jewellery|earring|necklace|bracelet|ring|anklet|bangle|hair|belt|sunglasses|eyewear|mask|scarf|scarves|dupatta|shawl|stole/.test(text)) return 'Accessories';
@@ -356,7 +594,7 @@ function productAudience(product) {
   if (/\bgirl\b|\bgirls\b|daughter/.test(text)) return 'girls';
   if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) return 'kids';
   if (product.brandKey === 'cambridge-pk') return 'men';
-  if (/\bmen\b|\bmens\b|\bmale\b|\bgents\b|kameez shalwar|jubba|waistcoat|\bpajama\b|mashriq|man-perfumes|men-s-body-mists|for him/.test(text)) return 'men';
+  if (/\bmen\b|\bmens\b|\bmale\b|\bgents\b|kameez shalwar|jubba|waistcoat|\bpajama\b|mashriq|for him/.test(text)) return 'men';
   return 'women';
 }
 
@@ -419,7 +657,18 @@ function openDetail(key) {
 }
 
 function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
-function clearFilters() { state.homeCategory = null; state.audience = 'all'; dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'recommended'; dom.inStock.checked = false; updateAudienceTabs(); updateDependentFilters(); render(); }
+function clearFilters() {
+  state.department = 'all';
+  state.subCategory = 'all';
+  dom.search.value = '';
+  dom.brand.value = 'all';
+  dom.category.value = 'all';
+  dom.size.value = 'all';
+  dom.sort.value = 'recommended';
+  dom.inStock.checked = false;
+  updateDependentFilters();
+  render();
+}
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }
@@ -437,17 +686,80 @@ function escape(value) { return String(value ?? '').replace(/[&<>"']/g, (charact
 dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.size.value = 'all'; updateDependentFilters(); render(); });
 dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
 for (const control of [dom.search, dom.size, dom.sort, dom.inStock]) control.addEventListener('input', render);
+
 function updateAudienceTabs() {
   for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
-    const selected = tab.dataset.audience === state.audience;
+    const selected = tab.dataset.audience === state.department;
     tab.classList.toggle('is-active', selected);
     tab.setAttribute('aria-selected', String(selected));
   }
 }
-for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
-  tab.addEventListener('click', () => { state.audience = tab.dataset.audience; state.homeCategory = null; updateAudienceTabs(); render(); });
+
+function updateNavLinks() {
+  for (const link of document.querySelectorAll('[data-nav-dept]')) {
+    const selected = link.dataset.navDept === state.department;
+    link.classList.toggle('current', selected);
+  }
 }
+
+for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
+  tab.addEventListener('click', () => {
+    state.department = tab.dataset.audience;
+    state.subCategory = 'all';
+    dom.brand.value = 'all';
+    dom.category.value = 'all';
+    dom.size.value = 'all';
+    updateDependentFilters();
+    render();
+  });
+}
+
+for (const link of document.querySelectorAll('[data-nav-dept]')) {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    state.department = link.dataset.navDept;
+    state.subCategory = 'all';
+    dom.brand.value = 'all';
+    dom.category.value = 'all';
+    dom.size.value = 'all';
+    updateDependentFilters();
+    render();
+    document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+dom.backToHome.addEventListener('click', () => {
+  state.department = 'all';
+  state.subCategory = 'all';
+  dom.brand.value = 'all';
+  dom.category.value = 'all';
+  dom.size.value = 'all';
+  updateDependentFilters();
+  render();
+});
+
+dom.breadcrumbDept.addEventListener('click', () => {
+  state.subCategory = 'all';
+  dom.category.value = 'all';
+  dom.size.value = 'all';
+  updateDependentFilters();
+  render();
+});
+
 dom.clear.addEventListener('click', clearFilters);
+dom.account.addEventListener('click', openAuth);
+dom.authClose.addEventListener('click', closeAuth);
+dom.authModal.addEventListener('click', (event) => { if (event.target === dom.authModal) closeAuth(); });
+dom.authForm.addEventListener('submit', submitAuth);
+dom.authMode.addEventListener('click', () => setAuthMode(state.authMode === 'login' ? 'register' : 'login'));
+dom.googleAuth.addEventListener('click', signInWithGoogle);
+el('drawer-close').addEventListener('click', closeDetail);
+dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDetail(); });
+
+await loadAuth();
+updateAudienceTabs();
+await loadCatalogue();
 dom.account.addEventListener('click', openAuth);
 dom.authClose.addEventListener('click', closeAuth);
 dom.authModal.addEventListener('click', (event) => { if (event.target === dom.authModal) closeAuth(); });
