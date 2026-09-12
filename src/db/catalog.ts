@@ -25,10 +25,12 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
       .select(`
         external_id, handle, title, description, url, product_type, vendor,
         tags, images, source, price_min, price_max, currency, stock_status, scraped_at,
+        active,
         brands!inner(key, name),
         variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
       `)
       .eq('brands.key', key)
+      .eq('active', true)
       .neq('stock_status', 'out_of_stock')
       .not('title', 'ilike', '%brief%')
       .not('product_type', 'ilike', '%brief%')

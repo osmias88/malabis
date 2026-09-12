@@ -71,6 +71,9 @@ create table if not exists products (
 
 alter table products add column if not exists tags text[] not null default '{}';
 alter table products add column if not exists images jsonb not null default '[]'::jsonb;
+alter table products add column if not exists active boolean not null default true;
+alter table products add column if not exists first_seen_at timestamptz not null default now();
+alter table products add column if not exists last_seen_at timestamptz;
 
 create table if not exists variants (
   id uuid primary key default gen_random_uuid(),
@@ -120,6 +123,7 @@ create table if not exists stock_history (
 );
 
 create index if not exists idx_products_brand_id on products(brand_id);
+create index if not exists idx_products_active_brand on products(brand_id, active, last_seen_at desc);
 create index if not exists idx_variants_product_id on variants(product_id);
 create index if not exists idx_price_history_product_id on price_history(product_id, captured_at desc);
 create index if not exists idx_stock_history_product_id on stock_history(product_id, captured_at desc);

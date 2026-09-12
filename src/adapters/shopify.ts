@@ -56,6 +56,7 @@ interface ShopifyProduct {
 
 const PAGE_SIZE = 250;
 const MAX_PAGES = 40;
+const HYDRATION_BATCH_SIZE = 8;
 
 /**
  * Reads the public Shopify storefront JSON endpoints (`/products.json`,
@@ -98,23 +99,33 @@ export class ShopifyAdapter implements ScraperAdapter {
         logger.debug(`page ${page} of ${endpoint} → ${batch.length} products`);
         if (batch.length === 0) break;
 
-        for (const raw of batch) {
-          if (emitted >= limit) return;
-          const handle = raw.handle;
-          if (!handle || seen.has(handle)) continue;
-          seen.add(handle);
+        const candidates = batch.filter((raw) => {
+          if (!raw.handle || seen.has(raw.handle)) return false;
+          seen.add(raw.handle);
+          return true;
+        });
 
-          try {
-            const hydrated = brand.options?.hydrateVariants
-              ? await this.hydrate(handle, context, raw)
-              : raw;
-            const product = this.toProduct(hydrated, context);
+        for (let offset = 0; offset < candidates.length; offset += HYDRATION_BATCH_SIZE) {
+          const hydrationBatch = candidates.slice(offset, offset + HYDRATION_BATCH_SIZE);
+          const parsed = await Promise.all(hydrationBatch.map(async (raw) => {
+            const handle = raw.handle as string;
+            try {
+              const hydrated = brand.options?.hydrateVariants
+                ? await this.hydrate(handle, context, raw)
+                : raw;
+              return this.toProduct(hydrated, context);
+            } catch (error) {
+              logger.warn(`failed to parse product "${handle}"`, { error: String(error) });
+              return null;
+            }
+          }));
+
+          for (const product of parsed) {
+            if (emitted >= limit) return;
             if (product) {
               emitted += 1;
               yield product;
             }
-          } catch (error) {
-            logger.warn(`failed to parse product "${handle}"`, { error: String(error) });
           }
         }
 
