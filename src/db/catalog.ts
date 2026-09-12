@@ -17,29 +17,30 @@ const FX_RETRY_MS = 5 * 60 * 1000;
 let fxCache: { converter: Converter; expiresAt: number } | undefined;
 
 export async function getCatalog(brandKey: string | undefined, limit: number): Promise<CatalogResult> {
-  let query = supabaseAdmin
-    .from('products')
-    .select(`
-      external_id, handle, title, description, url, product_type, vendor,
-      tags, images, source, price_min, price_max, currency, stock_status, scraped_at,
-      brands!inner(key, name),
-      variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
-    `)
-    .order('scraped_at', { ascending: false })
-    .limit(limit);
-
-  if (brandKey) query = query.eq('brands.key', brandKey);
-  else query = query.in('brands.key', BRANDS.map((brand) => brand.key));
-    query = query
+  const brandKeys = brandKey ? [brandKey] : BRANDS.map((brand) => brand.key);
+  const perBrandLimit = brandKey ? limit : Math.min(200, Math.floor(limit / brandKeys.length));
+  const batches = await Promise.all(brandKeys.map(async (key) => {
+    const { data, error } = await supabaseAdmin
+      .from('products')
+      .select(`
+        external_id, handle, title, description, url, product_type, vendor,
+        tags, images, source, price_min, price_max, currency, stock_status, scraped_at,
+        brands!inner(key, name),
+        variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
+      `)
+      .eq('brands.key', key)
       .neq('stock_status', 'out_of_stock')
       .not('title', 'ilike', '%brief%')
-      .not('product_type', 'ilike', '%brief%');
-  const { data, error } = await query;
+      .not('product_type', 'ilike', '%brief%')
+      .order('scraped_at', { ascending: false })
+      .limit(perBrandLimit);
 
-  if (error) throw new Error(`Could not load catalog: ${error.message}`);
+    if (error) throw new Error(`Could not load catalog for ${key}: ${error.message}`);
+    return data ?? [];
+  }));
 
   const converter = await getUsdConverter();
-  const products = (data ?? []).map(toProduct).map((product) => convertProduct(product, converter));
+  const products = batches.flat().map(toProduct).map((product) => convertProduct(product, converter));
   return {
     products,
     fx: {

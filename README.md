@@ -87,7 +87,9 @@ workflow:
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-The scheduled run ingests up to 200 products per brand. Scrape failures are
+The scheduled run ingests up to 400 products per brand, targeting at least 200
+eligible products per brand after public stock and product-type exclusions.
+Scrape failures are
 recorded in `scrape_runs`, and a failing brand does not prevent later brands
 from being attempted.
 

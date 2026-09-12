@@ -20,7 +20,7 @@ on:
       limit:
         description: Maximum products per brand
         required: true
-        default: '200'
+        default: '400'
         type: string
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       INGEST_BRAND: ${{ inputs.brand || 'all' }}
-      INGEST_LIMIT: ${{ inputs.limit || '200' }}
+      INGEST_LIMIT: ${{ inputs.limit || '400' }}
 
     steps:
       - name: Check out repository
