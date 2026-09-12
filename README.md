@@ -72,6 +72,10 @@ npm test
 Useful flags: `--concurrency`, `--format json,csv`, `--out <dir>`,
 `--log-level debug`, `--no-robots` (development only).
 
+Multi-brand ingestion runs up to three brands concurrently by default. Tune it
+with `--brand-concurrency <n>`; each brand still keeps its own request rate
+limit and failures remain isolated.
+
 ## Scheduled ingestion
 
 `.github/workflows/ingest.yml` refreshes every active brand hourly at 17 minutes

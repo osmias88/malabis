@@ -145,6 +145,7 @@ program
   .option('-a, --all', 'ingest every registered brand', false)
   .option('-l, --limit <n>', 'max products to ingest', (v) => Number.parseInt(v, 10), 25)
   .option('-c, --concurrency <n>', 'parallel requests', (v) => Number.parseInt(v, 10), 4)
+  .option('--brand-concurrency <n>', 'brands to ingest concurrently', (v) => Number.parseInt(v, 10), 3)
   .option('--no-robots', 'skip robots.txt checks (development only)')
   .addOption(logLevelOption)
   .action(async (options: IngestOptions) => {
@@ -153,22 +154,26 @@ program
     const brands = options.all ? BRANDS : [getBrand(options.brand ?? requireBrand())];
     const { ingestBrand } = await import('./db/ingest.js');
 
-    for (const brand of brands) {
-      log.info(`ingesting ${brand.name} (limit ${options.limit})`);
-      try {
-        const summary = await ingestBrand(brand, {
-          limit: options.limit,
-          concurrency: options.concurrency,
-          respectRobots: options.robots,
-        });
-        log.info(`saved ${summary.products} products and ${summary.variants} variants`, {
-          brand: summary.brandKey,
-          runId: summary.runId,
-        });
-      } catch (error) {
-        log.error(`brand "${brand.key}" failed`, { error: String(error) });
-        process.exitCode = 1;
-      }
+    const brandConcurrency = Math.max(1, Math.min(options.brandConcurrency, brands.length));
+    for (let offset = 0; offset < brands.length; offset += brandConcurrency) {
+      const batch = brands.slice(offset, offset + brandConcurrency);
+      await Promise.all(batch.map(async (brand) => {
+        log.info(`ingesting ${brand.name} (limit ${options.limit})`);
+        try {
+          const summary = await ingestBrand(brand, {
+            limit: options.limit,
+            concurrency: options.concurrency,
+            respectRobots: options.robots,
+          });
+          log.info(`saved ${summary.products} products and ${summary.variants} variants`, {
+            brand: summary.brandKey,
+            runId: summary.runId,
+          });
+        } catch (error) {
+          log.error(`brand "${brand.key}" failed`, { error: String(error) });
+          process.exitCode = 1;
+        }
+      }));
     }
   });
 
@@ -228,6 +233,7 @@ interface IngestOptions {
   all: boolean;
   limit: number;
   concurrency: number;
+  brandConcurrency: number;
   robots: boolean;
   logLevel: string;
 }
