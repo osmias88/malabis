@@ -1,5 +1,5 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null };
+const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null, heroTimer: null };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
@@ -135,10 +135,24 @@ function renderHeroReel() {
 
   dom.heroReel.innerHTML = featured.map((product, index) => `
     <figure class="hero-scene" style="--scene:${index}">
-      <img src="${escape(product.images[0].url)}" alt="" />
+      <img ${index < 4 ? `src="${escape(product.images[0].url)}"` : `data-src="${escape(product.images[0].url)}"`} alt="" />
       <figcaption><span>${escape(cleanBrand(product.brandName))}</span><a href="${escape(product.url)}" target="_blank" rel="noreferrer noopener"><strong>${escape(product.title)}</strong><em>View piece ↗</em></a></figcaption>
     </figure>`).join('');
   dom.heroReel.style.setProperty('--scene-count', featured.length || 1);
+  if (state.heroTimer) window.clearInterval(state.heroTimer);
+  let next = 4;
+  state.heroTimer = window.setInterval(() => {
+    for (let index = 0; index < 2; index += 1) {
+      const image = dom.heroReel.querySelector(`.hero-scene:nth-child(${next + 1}) img`);
+      if (!image) break;
+      if (image.dataset.src) {
+        image.src = image.dataset.src;
+        delete image.dataset.src;
+      }
+      next += 1;
+    }
+    if (next >= featured.length) window.clearInterval(state.heroTimer);
+  }, 3500);
 }
 
 function hydrateFilters() {
