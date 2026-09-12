@@ -308,14 +308,14 @@ function categoryShowcase(products) {
     .sort((left, right) => right[1].length - left[1].length)
     .map(([category, items]) => `
       <section class="category-section" aria-labelledby="category-${slugify(category)}">
-        <button class="category-heading category-filter" type="button" data-category="${escape(category)}"><h3 id="category-${slugify(category)}">${escape(category)}</h3><span>View ${items.length} pieces →</span></button>
+        <div class="category-heading"><h3 id="category-${slugify(category)}">${escape(category)}</h3><button class="category-filter" type="button" data-category="${escape(category)}">View ${items.length} pieces →</button></div>
         <div class="category-grid">${items.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
       </section>`);
 
   if (small.length) {
     sections.push(`
       <section class="category-section" aria-labelledby="category-more-to-discover">
-        <button class="category-heading category-filter" type="button" data-category="More to discover"><h3 id="category-more-to-discover">More to discover</h3><span>View ${small.length} pieces →</span></button>
+        <div class="category-heading"><h3 id="category-more-to-discover">More to discover</h3><button class="category-filter" type="button" data-category="More to discover">View ${small.length} pieces →</button></div>
         <div class="category-grid">${small.sort((a, b) => recommendationScore(b) - recommendationScore(a)).slice(0, 12).map(productCard).join('')}</div>
       </section>`);
   }
