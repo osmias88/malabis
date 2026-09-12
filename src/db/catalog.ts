@@ -18,7 +18,7 @@ let fxCache: { converter: Converter; expiresAt: number } | undefined;
 
 export async function getCatalog(brandKey: string | undefined, limit: number): Promise<CatalogResult> {
   const brandKeys = brandKey ? [brandKey] : BRANDS.map((brand) => brand.key);
-  const perBrandLimit = brandKey ? limit : Math.min(200, Math.floor(limit / brandKeys.length));
+  const perBrandLimit = brandKey ? limit : Math.min(400, Math.ceil(limit / brandKeys.length));
   const batches = await Promise.all(brandKeys.map(async (key) => {
     const { data, error } = await supabaseAdmin
       .from('products')
@@ -42,7 +42,10 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   }));
 
   const converter = await getUsdConverter();
-  const products = batches.flat().map(toProduct).map((product) => convertProduct(product, converter));
+  const products = batches.flat()
+    .map(toProduct)
+    .filter((product) => !isUnstitched(product))
+    .map((product) => convertProduct(product, converter));
   return {
     products,
     fx: {
@@ -139,4 +142,10 @@ function convertProduct(product: Product, converter: Converter): Product {
         : null,
     })),
   };
+}
+
+function isUnstitched(product: Product): boolean {
+  const text = [product.title, product.productType, product.description, ...product.tags]
+    .filter(Boolean).join(' ').toLowerCase();
+  return /unstitched|un-stitched/.test(text);
 }

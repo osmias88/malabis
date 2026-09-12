@@ -50,6 +50,14 @@
           <label class="stock-toggle"><input id="in-stock" type="checkbox" /><span>In stock only</span></label>
         </div>
 
+        <div id="audience-tabs" class="audience-tabs" role="tablist" aria-label="Shop by audience">
+          <button class="audience-tab is-active" type="button" role="tab" aria-selected="true" data-audience="all">Everyone</button>
+          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="women">Women</button>
+          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="men">Men</button>
+          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="boys">Boys</button>
+          <button class="audience-tab" type="button" role="tab" aria-selected="false" data-audience="girls">Girls</button>
+        </div>
+
         <aside id="size-reference" class="size-reference" hidden aria-live="polite"></aside>
 
           <div class="results-line"><p id="result-count" aria-live="polite">Loading available pieces…</p><button id="clear" class="text-button" type="button">Clear filters</button></div>

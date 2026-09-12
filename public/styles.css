@@ -47,6 +47,9 @@ button,input,select { font:inherit; }
 .filter-bar input:focus,.filter-bar select:focus { box-shadow:0 2px 0 var(--forest); }
 .filter-bar .stock-toggle { align-self:stretch; display:flex; align-items:center; gap:8px; padding-right:18px; white-space:nowrap; }
 .filter-bar .stock-toggle span { margin:0; color:var(--ink); letter-spacing:0; text-transform:none; }
+.audience-tabs { display:flex; gap:4px; padding:14px 0 0; overflow-x:auto; }
+.audience-tab { padding:8px 15px; border:1px solid var(--line); background:var(--white); color:var(--muted); cursor:pointer; font-size:12px; }
+.audience-tab.is-active { background:var(--forest); border-color:var(--forest); color:var(--white); }
 .stock-toggle input { accent-color:var(--forest); }
 .size-reference { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:20px; padding:13px 16px; color:var(--ink); background:#eef3ef; border:1px solid #cbd8d1; border-top:0; font-size:12px; }
 .size-reference div { display:grid; }

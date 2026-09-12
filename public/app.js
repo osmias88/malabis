@@ -1,5 +1,5 @@
 const el = (id) => document.getElementById(id);
-const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null, heroTimer: null, heroSlideTimer: null };
+const state = { products: [], brands: [], fx: null, auth: null, authConfig: null, authMode: 'login', homeCategory: null, audience: 'all', heroTimer: null, heroSlideTimer: null };
 const dom = {
   search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
   sort: el('sort'), inStock: el('in-stock'), clear: el('clear'), count: el('result-count'),
@@ -8,6 +8,7 @@ const dom = {
   account: el('account-button'), authModal: el('auth-modal'), authForm: el('auth-form'),
   authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
   googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
+  audienceTabs: el('audience-tabs'),
 };
 
 const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited availability', out_of_stock: 'Sold out', unknown: 'Check availability' };
@@ -111,7 +112,7 @@ function signInWithGoogle() {
 
 async function loadCatalogue() {
   try {
-    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=1000')]);
+    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=2000')]);
     state.brands = brands;
     state.products = result.products;
     state.fx = result.fx;
@@ -245,6 +246,7 @@ function render() {
   const term = dom.search.value.trim().toLowerCase();
   let products = state.products.filter((product) => {
     if (state.homeCategory && customerCategory(product) !== state.homeCategory) return false;
+    if (state.audience !== 'all' && productAudience(product) !== state.audience) return false;
     if (dom.brand.value !== 'all' && product.brandKey !== dom.brand.value) return false;
     if (dom.category.value !== 'all' && product.productType !== dom.category.value) return false;
     if (dom.size.value !== 'all' && !product.variants.some((variant) => variant.size === dom.size.value)) return false;
@@ -260,8 +262,9 @@ function render() {
   if (dom.sort.value === 'newest') products = [...products].sort((a, b) => b.scrapedAt.localeCompare(a.scrapedAt));
 
   const scope = dom.brand.value === 'all' ? 'across all brands' : `from ${cleanBrand(state.brands.find((brand) => brand.key === dom.brand.value)?.name ?? 'this brand')}`;
-  const isHomepage = !state.homeCategory && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked && dom.sort.value === 'recommended';
-  dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
+  const isHomepage = !state.homeCategory && state.audience === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all' && !dom.inStock.checked && dom.sort.value === 'recommended';
+  const audienceScope = state.audience === 'all' ? '' : ` for ${state.audience}`;
+  dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}${audienceScope}`;
   dom.grid.classList.toggle('category-showcase', isHomepage);
   dom.grid.innerHTML = isHomepage ? categoryShowcase(products) : productGrid(products);
   for (const card of dom.grid.querySelectorAll('.product-card')) {
@@ -340,6 +343,15 @@ function customerCategory(product) {
   return 'More to discover';
 }
 
+function productAudience(product) {
+  const text = [product.title, product.productType, ...product.tags].filter(Boolean).join(' ').toLowerCase();
+  if (/\bboy|boys/.test(text)) return 'boys';
+  if (/\bgirl|girls/.test(text)) return 'girls';
+  if (/\bboy|boys|men|mens|male|kameez shalwar|jubba|waistcoat/.test(text)) return 'men';
+  if (/\bkids?|junior|toddler|daughter/.test(text)) return 'girls';
+  return 'women';
+}
+
 function slugify(value) { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-'); }
 
 function productCard(product) {
@@ -399,7 +411,7 @@ function openDetail(key) {
 }
 
 function closeDetail() { dom.drawer.hidden = true; document.body.classList.remove('drawer-open'); }
-function clearFilters() { state.homeCategory = null; dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'recommended'; dom.inStock.checked = false; updateDependentFilters(); render(); }
+function clearFilters() { state.homeCategory = null; state.audience = 'all'; dom.search.value = ''; dom.brand.value = 'all'; dom.category.value = 'all'; dom.size.value = 'all'; dom.sort.value = 'recommended'; dom.inStock.checked = false; updateAudienceTabs(); updateDependentFilters(); render(); }
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }
@@ -417,6 +429,16 @@ function escape(value) { return String(value ?? '').replace(/[&<>"']/g, (charact
 dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.size.value = 'all'; updateDependentFilters(); render(); });
 dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
 for (const control of [dom.search, dom.size, dom.sort, dom.inStock]) control.addEventListener('input', render);
+function updateAudienceTabs() {
+  for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
+    const selected = tab.dataset.audience === state.audience;
+    tab.classList.toggle('is-active', selected);
+    tab.setAttribute('aria-selected', String(selected));
+  }
+}
+for (const tab of dom.audienceTabs.querySelectorAll('.audience-tab')) {
+  tab.addEventListener('click', () => { state.audience = tab.dataset.audience; state.homeCategory = null; updateAudienceTabs(); render(); });
+}
 dom.clear.addEventListener('click', clearFilters);
 dom.account.addEventListener('click', openAuth);
 dom.authClose.addEventListener('click', closeAuth);
@@ -429,4 +451,5 @@ dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawe
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDetail(); });
 document.querySelector('[data-new-link]').addEventListener('click', () => { dom.sort.value = 'newest'; render(); });
 await loadAuth();
+updateAudienceTabs();
 await loadCatalogue();

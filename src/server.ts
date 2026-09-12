@@ -108,7 +108,7 @@ async function catalog(url: URL, response: import('node:http').ServerResponse): 
   const brandKey = url.searchParams.get('brand') ?? undefined;
 
   if (brandKey) getBrand(brandKey);
-  const limit = clamp(Number.parseInt(url.searchParams.get('limit') ?? '1000', 10), 1, 1000);
+  const limit = clamp(Number.parseInt(url.searchParams.get('limit') ?? '2000', 10), 1, 2000);
   const { getCatalog } = await import('./db/catalog.js');
   sendJson(response, 200, await getCatalog(brandKey, limit));
 }
