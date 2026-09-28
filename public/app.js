@@ -54,32 +54,27 @@ const DEPARTMENTS = {
   women: {
     label: 'Women',
     eyebrow: "Women's Collection",
-    title: 'Women’s Pakistani Fashion',
+    title: 'Women’s Clothing',
     subcategories: [
       { id: 'all', label: 'All Women' },
-      { id: 'Eastern wear', label: 'Eastern Wear (Kurtas & Suits)' },
-      { id: 'Festive & Formal', label: 'Festive & Luxury Pret' },
-      { id: 'Western', label: 'Western & Co-ords' },
-      { id: 'Footwear', label: 'Footwear' },
-      { id: 'Accessories', label: 'Accessories & Dupattas' },
-      { id: 'Home & Living', label: 'Home & Living' },
+      { id: 'Eastern wear', label: 'Eastern (Kurtas & Suits)' },
+      { id: 'Western', label: 'Western (Tops, Jeans & Co-ords)' },
     ],
   },
   men: {
     label: 'Men',
     eyebrow: "Men's Collection",
-    title: 'Men’s Traditional & Modern Wear',
+    title: 'Men’s Clothing',
     subcategories: [
       { id: 'all', label: 'All Men' },
       { id: 'Eastern wear', label: 'Eastern (Shalwar Kameez & Kurtas)' },
-      { id: 'Western', label: 'Western (Polos, Shirts & Blazers)' },
-      { id: 'Accessories', label: 'Accessories' },
+      { id: 'Western', label: 'Western (Polos, Shirts & Jeans)' },
     ],
   },
   kids: {
-    label: 'Kids & Juniors',
+    label: 'Girls & Boys',
     eyebrow: "Kids' Collection",
-    title: 'Kids & Juniors Collection',
+    title: 'Girls & Boys Clothing',
     subcategories: [
       { id: 'all', label: 'All Kids' },
       { id: 'girls', label: 'Girls' },
@@ -98,60 +93,44 @@ const FEATURED_TILES = [
     match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Eastern wear',
   },
   {
-    id: 'women-festive',
+    id: 'women-western',
     dept: 'women',
-    sub: 'Festive & Formal',
-    title: 'Festive & Luxury Pret',
-    subtitle: 'Chiffon, Luxury Pret & Embroidered Formals',
-    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Festive & Formal',
+    sub: 'Western',
+    title: "Women's Western Wear",
+    subtitle: 'Tops, Jeans & Co-ord Sets',
+    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Western',
   },
   {
     id: 'men-eastern',
     dept: 'men',
     sub: 'Eastern wear',
     title: "Men's Shalwar Kameez",
-    subtitle: 'Traditional Suits, Kurtas & Waistcoats',
+    subtitle: 'Shalwar Kameez, Kurtas & Waistcoats',
     match: (p) => productAudience(p) === 'men' && customerCategory(p) === 'Eastern wear',
   },
   {
     id: 'men-western',
     dept: 'men',
     sub: 'Western',
-    title: "Men's Western & Blazers",
-    subtitle: 'Polos, Shirts, Blazers & Smart Casuals',
+    title: "Men's Western Wear",
+    subtitle: 'Polos, Shirts, Jeans & Blazers',
     match: (p) => productAudience(p) === 'men' && customerCategory(p) === 'Western',
   },
   {
-    id: 'women-western',
-    dept: 'women',
-    sub: 'Western',
-    title: 'Western & Co-ords',
-    subtitle: 'Modern Tops, Trousers & Co-ord Sets',
-    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Western',
-  },
-  {
-    id: 'kids-all',
+    id: 'girls',
     dept: 'kids',
-    sub: 'all',
-    title: 'Kids & Juniors',
-    subtitle: 'Festive & Casual Styles for Boys & Girls',
-    match: (p) => isKidsProduct(p),
+    sub: 'girls',
+    title: "Girls' Clothing",
+    subtitle: 'Frocks, Kurtas & Everyday Wear',
+    match: (p) => productAudience(p) === 'girls',
   },
   {
-    id: 'footwear-accessories',
-    dept: 'women',
-    sub: 'Footwear',
-    title: 'Footwear & Accessories',
-    subtitle: 'Handcrafted Khussas, Flats, Bags & Dupattas',
-    match: (p) => customerCategory(p) === 'Footwear' || customerCategory(p) === 'Accessories',
-  },
-  {
-    id: 'home-living',
-    dept: 'women',
-    sub: 'Home & Living',
-    title: 'Home & Living',
-    subtitle: 'Artisanal Decor, Cushions & Table Accents',
-    match: (p) => customerCategory(p) === 'Home & Living',
+    id: 'boys',
+    dept: 'kids',
+    sub: 'boys',
+    title: "Boys' Clothing",
+    subtitle: 'Kurta Pajama, Polos & Jeans',
+    match: (p) => productAudience(p) === 'boys',
   },
 ];
 
@@ -651,19 +630,22 @@ function productGrid(products) {
 
 function isKidsProduct(product) {
   const aud = productAudience(product);
-  return aud === 'kids' || aud === 'girls' || aud === 'boys' || customerCategory(product) === 'Kids';
+  return aud === 'kids' || aud === 'girls' || aud === 'boys';
 }
 
+// The server only sends everyday clothing (festive wear and non-clothing
+// items are filtered out), so each piece is either eastern or western.
+const EASTERN_WORDS = /\b(kameez|kurtas?|kurtis?|shalwar|salwar|sherwanis?|waistcoats?|jubbas?|pajamas?|pyjamas?|lehngas?|lehengas?|ghararas?|shararas?|angrakhas?|anarkalis?|kaftans?|abayas?|lawn|eastern|dupattas?)\b/;
+const WESTERN_WORDS = /\b(polos?|tees?|t-?shirts?|blazers?|jackets?|hoodies?|sweatshirts?|jeans|denims?|western|tank tops?|cardigans?|overcoats?|sweaters?|chinos?|shorts|joggers?|jumpsuits?)\b/;
+
 function customerCategory(product) {
-  const text = [product.productType, product.title, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
-  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b|\bboy\b|\bgirl\b|\bboys\b|\bgirls\b/.test(text)) return 'Kids';
-  if (/footwear|shoe|shoes|pump|pumps|sandal|sandals|chappal|loafer|loafers|flats?|mules?|khussa|kolhapuri|sneaker|sneakers|heel|heels|slippers?/.test(text)) return 'Footwear';
-  if (/cushion|table runner|dummy book|candle|diffuser|tray|coaster|vase|pottery|plate|bowl|platter|home decor|bedding|quilt|pillow|gift box|tissue box|\bobjects\b|\bhome\b|\bmugs?\b/.test(text)) return 'Home & Living';
-  if (/accessor|bag|bags|clutch|tote|wallet|jewell|jewellery|earring|necklace|bracelet|ring|anklet|bangle|hair|belt|sunglasses|eyewear|mask|scarf|scarves|dupatta|shawl|stole/.test(text)) return 'Accessories';
-  if (/festive|bridal|couture|formal|wedding|luxury pret|raw silk|chiffon|organza|zari|embroidered formal|the-night-before-forever|desert-rose|mastaani/.test(text)) return 'Festive & Formal';
-  if (/polo|tee|t-shirt|blazer|jacket|hoodie|sweatshirt|jeans|denim|western|tank top|cardigan|overcoat|sweater/.test(text)) return 'Western';
-  if (/lawn|pret|fusion|eastern|stitched|suit|ensemble|set|co-ord|coord|kameez|kurta|kurti|shalwar|salwar|trouser|pant|culottes|plazo|palazzo|pajama|tunic|kaftan|abaya|maxi|dress|shirt|top|bottom|ready-to-wear/.test(text)) return 'Eastern wear';
-  return 'More to discover';
+  const text = [product.productType, product.title, product.url].filter(Boolean).join(' ').toLowerCase().replace(/[-_/]+/g, ' ');
+  if (EASTERN_WORDS.test(text)) return 'Eastern wear';
+  if (WESTERN_WORDS.test(text)) return 'Western';
+  // Menswear without an eastern word (a plain "shirt" or "trouser") is western.
+  const aud = productAudience(product);
+  if (aud === 'men' || aud === 'boys') return 'Western';
+  return 'Eastern wear';
 }
 
 function productAudience(product) {

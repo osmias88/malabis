@@ -4,6 +4,7 @@ import { ShopifyAdapter } from '../adapters/shopify.js';
 import type { BrandConfig, ScrapeContext, ScraperAdapter } from '../adapters/types.js';
 import { getBrandProxy } from '../config/brands.js';
 import { HttpClient } from './http.js';
+import { isCatalogueClothing } from './dress.js';
 import { createLogger } from './logger.js';
 import { ProductSchema, type Product, type ScrapeResult, type ScrapeStats } from './types.js';
 
@@ -75,6 +76,7 @@ export async function scrapeBrand(brand: BrandConfig, options: RunOptions = {}):
   const errors: string[] = [];
   let found = 0;
   let failures = 0;
+  let skipped = 0;
 
   for await (const product of adapter.scrape(context)) {
     found += 1;
@@ -88,9 +90,19 @@ export async function scrapeBrand(brand: BrandConfig, options: RunOptions = {}):
       });
       continue;
     }
+    // Malabis only lists everyday clothing; festive wear and non-clothing
+    // items are dropped here so they never reach the database. On ingest,
+    // previously saved ones are then marked inactive as "missing".
+    if (!isCatalogueClothing(parsed.data)) {
+      skipped += 1;
+      context.logger.debug(`skipped non-catalogue product ${parsed.data.handle}`);
+      continue;
+    }
     products.push(parsed.data);
     options.onProduct?.(parsed.data);
   }
+
+  if (skipped) context.logger.info(`skipped ${skipped} festive or non-clothing products`);
 
   const stats: ScrapeStats = {
     brandKey: brand.key,
