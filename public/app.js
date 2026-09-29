@@ -655,6 +655,15 @@ function productAudience(product) {
   if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) return 'kids';
   if (product.brandKey === 'cambridge-pk') return 'men';
   if (/\bmen\b|\bmens\b|\bmale\b|\bgents\b|kameez shalwar|jubba|waistcoat|\bpajama\b|mashriq|for him/.test(text)) return 'men';
+  // Some stores (e.g. Sapphire) only name the audience in the description:
+  // "Shop SAPPHIRE online for mens KURTA ...".
+  const forWhom = (product.description || '').toLowerCase().match(/\bfor (mens?|gents|boys?|girls?|kids)\b/);
+  if (forWhom) {
+    if (/^boys?$/.test(forWhom[1])) return 'boys';
+    if (/^girls?$/.test(forWhom[1])) return 'girls';
+    if (forWhom[1] === 'kids') return 'kids';
+    return 'men';
+  }
   return 'women';
 }
 
