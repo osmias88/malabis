@@ -47,8 +47,10 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   }));
 
   const converter = await getUsdConverter();
-  const products = batches.flat()
-    .map(toProduct)
+  const rows = batches.flat();
+  const importDays = bulkImportDays(rows);
+  const products = rows
+    .map((row) => toProduct(row, importDays))
     .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
     .map((product) => {
       const stitched = toStitchedOnly(product);
@@ -78,7 +80,42 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   };
 }
 
-function toProduct(row: Record<string, unknown>): CatalogProduct {
+// A day on which a brand gained this many undated products was a bulk
+// import (a new brand or a scraper fix), not a day of new launches.
+const BULK_IMPORT_SIZE = 40;
+const DAY_MS = 86_400_000;
+
+function importKey(row: Record<string, unknown>): string {
+  const brand = row.brands as { key: string };
+  return `${brand.key}:${String(row.first_seen_at ?? '').slice(0, 10)}`;
+}
+
+function bulkImportDays(rows: Array<Record<string, unknown>>): Set<string> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.published_at) continue;
+    counts.set(importKey(row), (counts.get(importKey(row)) ?? 0) + 1);
+  }
+  return new Set([...counts].filter(([, count]) => count >= BULK_IMPORT_SIZE).map(([key]) => key));
+}
+
+/**
+ * When the product was listed, for "newest first": the brand's own launch
+ * date when known, otherwise when Malabis first saw it. Undated products
+ * from a bulk import are placed behind recent arrivals instead of all
+ * counting as new: this season's codes (e.g. PRW26…) 60 days back, older
+ * ones 180 days back.
+ */
+function estimateListedAt(row: Record<string, unknown>, importDays: Set<string>): string {
+  if (row.published_at) return String(row.published_at);
+  const firstSeen = String(row.first_seen_at ?? row.scraped_at);
+  if (!importDays.has(importKey(row))) return firstSeen;
+  const season = String(new Date().getUTCFullYear() % 100);
+  const currentSeason = new RegExp(`[A-Z]${season}|${season}[A-Z]`, 'i').test(String(row.handle));
+  return new Date(Date.parse(firstSeen) - (currentSeason ? 60 : 180) * DAY_MS).toISOString();
+}
+
+function toProduct(row: Record<string, unknown>, importDays: Set<string>): CatalogProduct {
   const brand = row.brands as { key: string; name: string };
   const currency = String(row.currency);
   const variants = (row.variants as Array<Record<string, unknown>>)
@@ -122,8 +159,7 @@ function toProduct(row: Record<string, unknown>): CatalogProduct {
     scrapedAt: String(row.scraped_at),
     sourceUpdatedAt: row.source_updated_at ? String(row.source_updated_at) : null,
     publishedAt: row.published_at ? String(row.published_at) : null,
-    // The brand's own launch date when known, otherwise when Malabis first saw it.
-    listedAt: String(row.published_at ?? row.first_seen_at ?? row.scraped_at),
+    listedAt: estimateListedAt(row, importDays),
   };
 }
 
