@@ -4,16 +4,16 @@ import type { Product, ProductVariant } from './types.js';
 /**
  * Malabis only carries everyday clothing for women, men, girls and boys:
  * eastern dresses (kurtas, shalwar kameez, suits) and western wear (polos,
- * jeans, shirts). Festive/formal/bridal wear and non-clothing items
- * (footwear, bags, jewellery, home goods, standalone dupattas/shawls) are left
- * out of the catalogue.
+ * jeans, shirts). Festive/formal/bridal wear (except from FESTIVE_BRANDS)
+ * and non-clothing items (footwear, bags, jewellery, home
+ * goods, standalone dupattas/shawls) are left out of the catalogue.
  */
 
 // Words that only ever describe a Pakistani/eastern garment.
 const EASTERN_GARMENT = /\b(kameez|kurtas?|kurtis?|shalwar|salwar|shalwaar|sherwanis?|waistcoats?|jubbas?|pajamas?|pyjamas?|lehngas?|lehengas?|ghararas?|shararas?|cholis?|angrakhas?|peshwas|anarkalis?|farshi|kaftans?|abayas?|prince coat|eastern)\b/;
 
 // Words that describe a women's/girls' dress or suit (eastern by default on these storefronts).
-const GENERAL_GARMENT = /\b(\d[- ]?piece|two piece|three piece|suits?|shirts?|trousers?|frocks?|maxis?|gowns?|dress(es)?|tunics?|ensembles?|co-?ords?|culottes|palazzos?|plazos?|pret|lawn|stitched|ready[- ]to[- ]wear|tops?|bottoms?|sets?)\b/;
+const GENERAL_GARMENT = /\b(\d[- ]?piece|two piece|three piece|suits?|shirts?|trousers?|frocks?|maxis?|gowns?|dress(es)?|tunics?|ensembles?|co-?ords?|culottes|palazzos?|plazos?|pret|lawn|festive|stitched|ready[- ]to[- ]wear|tops?|bottoms?|sets?)\b/;
 
 const WESTERN = /\b(polos?|tees?|t-?shirts?|blazers?|jackets?|hoodies?|sweatshirts?|jeans|denims?|western|tank tops?|cardigans?|overcoats?|sweaters?|chinos?|shorts|joggers?|trackpants?|jumpsuits?|swim\w*)\b/;
 
@@ -24,12 +24,16 @@ const DRAPE_ONLY = /\b(dupattas?|shawls?|stoles?|scarf|scarves)\b/;
 
 const FESTIVE = /festive|bridal|couture|formal|wedding|luxury pret|raw silk|chiffon|organza|zari|the-night-before-forever|desert-rose|mastaani/;
 
+// Brands whose festive, formal, bridal and wedding wear is carried.
+// Unstitched options are still removed by toStitchedOnly.
+const FESTIVE_BRANDS = new Set(['afrozeh-pk']);
+
 export function isCatalogueClothing(product: Pick<Product, 'title' | 'productType' | 'url' | 'tags' | 'brandKey'>): boolean {
   const primary = [product.title, product.productType, product.url].filter(Boolean).join(' ').toLowerCase();
   const withTags = `${primary} ${(product.tags ?? []).join(' ').toLowerCase()}`;
   const text = primary.replace(/[-_/]+/g, ' ');
 
-  if (FESTIVE.test(withTags)) return false;
+  if (!FESTIVE_BRANDS.has(product.brandKey) && FESTIVE.test(withTags)) return false;
 
   // Title/type/URL decide first; tags are only a fallback because stores tag
   // products with cross-sell words ("bags", "heels") that aren't about the item.

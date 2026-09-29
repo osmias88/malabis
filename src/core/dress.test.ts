@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { toStitchedOnly } from './dress.js';
+import { isCatalogueClothing, toStitchedOnly } from './dress.js';
 import type { Product, ProductVariant } from './types.js';
 
 function variant(title: string, size: string | null, amount: number): ProductVariant {
@@ -33,4 +33,10 @@ test('toStitchedOnly drops the unstitched option and reprices', () => {
 test('toStitchedOnly drops fabric-only and size-less products', () => {
   assert.equal(toStitchedOnly(product([variant('Un-Stitched', null, 500000)])), null);
   assert.equal(toStitchedOnly(product([variant('Default', null, 500000)])), null);
+});
+
+test('isCatalogueClothing keeps Afrozeh festive and bridal wear only', () => {
+  const festive = { title: 'Mehr', productType: 'Festive', url: 'https://www.afrozeh.com/products/mehr', tags: ["SHEHNAI WEDDING FORMALS'26"] };
+  assert.equal(isCatalogueClothing({ ...festive, brandKey: 'afrozeh-pk' }), true);
+  assert.equal(isCatalogueClothing({ ...festive, brandKey: 'sapphire-pk' }), false);
 });
