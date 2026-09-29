@@ -21,7 +21,7 @@ const state = {
 const dom = {
   search: el('search'), size: el('size'), sort: el('sort'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), showMore: el('show-more'),
-  home: el('home'), brandStrip: el('brand-strip'), newRail: el('new-rail'), newNote: el('new-note'),
+  home: el('home'), brandStrip: el('brand-strip'), brandRows: el('brand-rows'),
   featureTiles: el('feature-tiles'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
   activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
   rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
@@ -39,12 +39,8 @@ const TABS = {
   boys: { label: 'Boys', title: 'Boys' },
 };
 
-const FEATURES = [
-  { title: 'Women’s kurtas & suits', tab: 'women', section: 'Kurtas & Suits', match: (p) => audienceOf(p) === 'women' && garmentOf(p) === 'Kurtas & Suits' },
-  { title: 'Men’s shalwar kameez', tab: 'men', section: 'Shalwar Kameez', match: (p) => audienceOf(p) === 'men' && garmentOf(p) === 'Shalwar Kameez' },
-  { title: 'Girls’ dresses & co-ords', tab: 'girls', section: 'all', match: (p) => inTab(p, 'girls') },
-  { title: 'Boys’ kurta sets', tab: 'boys', section: 'all', match: (p) => inTab(p, 'boys') },
-];
+const FEATURES = ['women', 'men', 'girls', 'boys'];
+const BRAND_ROW_SIZE = 4;
 
 const money = (value) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency: value.currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -237,7 +233,7 @@ function scopedProducts({ ignoreSection = false, ignoreSize = false } = {}) {
   return state.products.filter((product) => {
     if (!inTab(product, state.tab)) return false;
     if (state.brand !== 'all' && product.brandKey !== state.brand) return false;
-    if (!ignoreSection && state.section !== 'all' && sectionOf(product) !== state.section) return false;
+    if (!ignoreSection && state.brand !== 'all' && state.section !== 'all' && sectionOf(product) !== state.section) return false;
     if (!ignoreSize && state.size !== 'all' && !product.variants.some((variant) => variant.available && variant.size === state.size)) return false;
     if (term) {
       const haystack = [product.title, product.brandName, product.productType, garmentOf(product), ...product.tags].filter(Boolean).join(' ').toLowerCase();
@@ -299,7 +295,7 @@ function navigate(changes, { scroll = true } = {}) {
 }
 
 function headerHeight() { return document.querySelector('.site-header')?.offsetHeight ?? 0; }
-function isHomeView() { return state.tab === 'all' && state.brand === 'all' && state.section === 'all' && !state.query.trim(); }
+function isHomeView() { return state.tab === 'all' && state.brand === 'all' && !state.query.trim(); }
 
 /* ---------- Rendering ---------- */
 
@@ -361,17 +357,26 @@ function renderHome() {
     </button>`;
   }).join('');
 
-  const fresh = byNewest.filter(isNew);
-  const railItems = (fresh.length >= 6 ? fresh : byNewest).slice(0, 16);
-  dom.newNote.textContent = fresh.length ? `${fresh.length} pieces added in the last ${NEW_DAYS} days` : 'The latest pieces across every brand';
-  dom.newRail.innerHTML = railItems.map(productCard).join('');
-
-  dom.featureTiles.innerHTML = FEATURES.map((feature) => {
-    const items = sortProducts(state.products.filter(feature.match)).filter((product) => product.images.length);
+  // One row per brand: its newest pieces and a link to the rest.
+  dom.brandRows.innerHTML = state.brands.map((brand) => {
+    const items = byNewest.filter((product) => product.brandKey === brand.key);
     if (!items.length) return '';
-    return `<button type="button" class="feature-tile" data-tab="${feature.tab}" data-section="${escape(feature.section)}">
+    const name = cleanBrand(brand.name);
+    return `<section class="home-block brand-row" aria-label="${escape(name)}">
+      <div class="block-head">
+        <h2>${escape(name)}</h2>
+        <button type="button" class="block-link" data-brand="${escape(brand.key)}">Shop all ${items.length} →</button>
+      </div>
+      <div class="product-grid">${items.slice(0, BRAND_ROW_SIZE).map(productCard).join('')}</div>
+    </section>`;
+  }).join('');
+
+  dom.featureTiles.innerHTML = FEATURES.map((tab) => {
+    const items = byNewest.filter((product) => inTab(product, tab));
+    if (!items.length) return '';
+    return `<button type="button" class="feature-tile" data-tab="${tab}">
       <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
-      <span class="feature-copy"><strong>${escape(feature.title)}</strong><span>${items.length} pieces · Shop now →</span></span>
+      <span class="feature-copy"><strong>${escape(TABS[tab].label)}</strong><span>${items.length} pieces · Shop now →</span></span>
     </button>`;
   }).join('');
 }
@@ -382,7 +387,7 @@ function renderListing() {
   dom.listingEyebrow.textContent = home ? 'Across every brand' : brandLabel;
   if (state.query.trim()) dom.listingTitle.textContent = `Results for “${state.query.trim()}”`;
   else if (home) dom.listingTitle.textContent = 'Everything, newest first';
-  else if (state.section !== 'all') dom.listingTitle.textContent = `${state.tab === 'all' ? '' : `${TABS[state.tab].label} · `}${state.section}`;
+  else if (state.brand !== 'all' && state.section !== 'all') dom.listingTitle.textContent = `${state.tab === 'all' ? '' : `${TABS[state.tab].label} · `}${state.section}`;
   else if (state.brand !== 'all') dom.listingTitle.textContent = state.tab === 'all' ? `New from ${brandLabel}` : `${TABS[state.tab].label} at ${brandLabel}`;
   else dom.listingTitle.textContent = TABS[state.tab].title;
 
@@ -390,7 +395,7 @@ function renderListing() {
   const chips = [];
   if (state.tab !== 'all') chips.push({ label: TABS[state.tab].label, clear: { tab: 'all' } });
   if (state.brand !== 'all') chips.push({ label: brandLabel, clear: { brand: 'all' } });
-  if (state.section !== 'all') chips.push({ label: state.section, clear: { section: 'all' } });
+  if (state.brand !== 'all' && state.section !== 'all') chips.push({ label: state.section, clear: { section: 'all' } });
   if (state.size !== 'all') chips.push({ label: `Size ${state.size}`, clear: { size: 'all' } });
   if (state.query.trim()) chips.push({ label: `“${state.query.trim()}”`, clear: { query: '' } });
   dom.activeChips.innerHTML = chips.map((chip, index) => `<button type="button" class="active-chip" data-chip="${index}" aria-label="Remove ${escape(chip.label)}">${escape(chip.label)} <span aria-hidden="true">×</span></button>`).join('')
@@ -407,7 +412,8 @@ function renderListing() {
   // Section chips: the brand's own lines, or garment types across brands.
   const sectionCounts = countBy(scopedProducts({ ignoreSection: true }), sectionOf);
   const sections = [...sectionCounts].sort((a, b) => b[1] - a[1]);
-  dom.sectionChips.hidden = home || sections.length < 2;
+  // Sections are a brand's own lines, so they only appear once a brand is picked.
+  dom.sectionChips.hidden = home || state.brand === 'all' || sections.length < 2;
   dom.sectionChips.innerHTML = `<button type="button" class="section-chip ${state.section === 'all' ? 'is-current' : ''}" data-section="all">All</button>`
     + sections.map(([name, count]) => `<button type="button" class="section-chip ${state.section === name ? 'is-current' : ''}" data-section="${escape(name)}">${escape(name)} <span>${count}</span></button>`).join('');
 
@@ -676,14 +682,14 @@ dom.home.addEventListener('click', (event) => {
   const brand = event.target.closest('[data-brand]');
   if (brand) { navigate({ brand: brand.dataset.brand }); return; }
   const feature = event.target.closest('.feature-tile');
-  if (feature) navigate({ tab: feature.dataset.tab, section: feature.dataset.section });
+  if (feature) navigate({ tab: feature.dataset.tab });
 });
 
 dom.grid.addEventListener('click', (event) => {
   const card = event.target.closest('.product-card');
   if (card) openDetail(card.dataset.key);
 });
-for (const container of [dom.grid, dom.newRail]) {
+for (const container of [dom.grid, dom.brandRows]) {
   container.addEventListener('keydown', (event) => {
     const card = event.target.closest('.product-card');
     if (card && event.key === 'Enter') openDetail(card.dataset.key);
