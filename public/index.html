@@ -11,23 +11,24 @@
   <body>
     <header class="site-header">
       <div class="header-bar">
-        <button id="rail-open" class="icon-button rail-open" type="button" aria-label="Browse brands" aria-controls="brand-rail" aria-expanded="false">
-          <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="rail-open-label">Brands</span>
-        </button>
+        <div class="header-left">
+          <button id="rail-open" class="icon-button rail-open" type="button" aria-label="Browse brands" aria-controls="brand-rail" aria-expanded="false">
+            <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span class="rail-open-label">Brands</span>
+          </button>
+          <label class="search-box">
+            <span class="visually-hidden">Search pieces</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input id="search" type="search" placeholder="Search" autocomplete="off" />
+          </label>
+        </div>
         <a class="wordmark" href="/" aria-label="Malabis home">MALABIS</a>
-        <label class="search-box">
-          <span class="visually-hidden">Search pieces</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-          <input id="search" type="search" placeholder="Search kurtas, polos, lawn…" autocomplete="off" />
-        </label>
         <div class="header-actions">
           <span class="location">Shipping across the US</span>
           <button id="account-button" class="account-button" type="button">Sign in</button>
         </div>
       </div>
       <nav id="audience-tabs" class="audience-tabs" aria-label="Shop by">
-        <a href="?" data-tab="all" class="is-current">New In</a>
         <a href="?tab=women" data-tab="women">Women</a>
         <a href="?tab=men" data-tab="men">Men</a>
         <a href="?tab=girls" data-tab="girls">Girls</a>
@@ -47,7 +48,6 @@
 
       <main id="main" class="main">
         <section id="home" class="home" aria-label="Featured" hidden>
-          <div id="hero" class="hero"></div>
           <section class="home-block" aria-labelledby="brands-title">
             <div class="block-head">
               <h2 id="brands-title">Shop by brand</h2>

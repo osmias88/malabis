@@ -47,12 +47,15 @@ img { max-width: 100%; }
 }
 
 .header-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 20px;
   min-height: 64px;
   padding: 0 var(--gutter);
 }
+
+.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
 .wordmark {
   text-decoration: none;
@@ -82,14 +85,13 @@ img { max-width: 100%; }
 .hamburger-icon span { display: block; height: 2px; background: currentColor; }
 
 .search-box {
-  flex: 1;
-  max-width: 460px;
-  margin-left: auto;
+  flex: 0 1 220px;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  height: 40px;
+  height: 36px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--white);
@@ -98,7 +100,7 @@ img { max-width: 100%; }
 .search-box input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 14px; }
 .search-box:focus-within { border-color: var(--ink); }
 
-.header-actions { display: flex; align-items: center; gap: 14px; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
 .location { color: var(--forest); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .account-button {
   padding: 8px 16px;
@@ -178,69 +180,12 @@ img { max-width: 100%; }
 .rail-section { padding: 6px 10px; font-size: 14px; color: var(--muted); }
 .rail-section:hover { color: var(--ink); background: var(--soft); }
 .rail-section.is-current { color: var(--ink); font-weight: 600; background: var(--soft); }
-.rail-note { margin: 18px 10px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .rail-scrim { display: none; }
 
 .main { min-width: 0; padding: 28px var(--gutter) 80px; }
 
-/* ---------- Home: hero ---------- */
+/* ---------- Home ---------- */
 .home { display: grid; grid-template-columns: minmax(0, 1fr); gap: 56px; margin-bottom: 56px; }
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(260px, .8fr) minmax(0, 2fr);
-  gap: clamp(20px, 3vw, 40px);
-  align-items: stretch;
-}
-
-.hero-copy { display: flex; flex-direction: column; justify-content: center; padding: 12px 0; }
-.hero-copy h1 {
-  margin: 0 0 14px;
-  font: 500 clamp(32px, 3.6vw, 52px)/1.05 var(--font-display);
-  letter-spacing: -.02em;
-}
-.hero-copy > p:not(.eyebrow) { margin: 0 0 24px; color: var(--muted); font-size: 16px; max-width: 34ch; }
-.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.button-primary, .button-quiet {
-  display: inline-flex;
-  align-items: center;
-  padding: 12px 22px;
-  border-radius: 999px;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-}
-.button-primary { background: var(--ink); color: var(--white); }
-.button-primary:hover { background: #33352f; }
-.button-quiet { border: 1px solid var(--ink); }
-.button-quiet:hover { background: var(--white); }
-
-.hero-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.hero-tile {
-  position: relative;
-  display: block;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--soft);
-  aspect-ratio: 2 / 3;
-  cursor: pointer;
-}
-.hero-tile img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; transition: transform .6s ease; }
-.hero-tile:hover img { transform: scale(1.04); }
-.hero-tile-caption {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  display: grid;
-  gap: 2px;
-  padding: 36px 12px 12px;
-  color: var(--white);
-  text-align: left;
-  font: 500 14px/1.25 var(--font-display);
-  background: linear-gradient(transparent, rgba(0, 0, 0, .7));
-}
-.hero-tile-caption span { font: 600 10px var(--font-body); letter-spacing: .12em; text-transform: uppercase; opacity: .85; }
 
 /* ---------- Home: blocks ---------- */
 .block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
@@ -720,8 +665,6 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
-  .hero { grid-template-columns: 1fr; }
-  .hero-copy { padding: 0; }
   .feature-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .location { display: none; }
 }
@@ -758,35 +701,21 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
 }
 
 @media (max-width: 720px) {
-  .header-bar { gap: 10px; min-height: 56px; padding: 0 16px; flex-wrap: wrap; }
+  .header-bar { grid-template-columns: 1fr auto 1fr; gap: 10px; row-gap: 0; min-height: 56px; padding: 0 16px; }
   .wordmark { font-size: 18px; letter-spacing: .14em; }
   .rail-open-label { display: none; }
   .rail-open { padding: 9px 10px; }
-  .header-actions { margin-left: auto; }
   .account-button { padding: 7px 12px; }
-  .search-box { order: 5; flex-basis: 100%; max-width: none; margin: 0 0 10px; height: 38px; }
+  .header-left { display: contents; }
+  .rail-open { grid-column: 1; grid-row: 1; justify-self: start; }
+  .search-box { grid-column: 1 / -1; grid-row: 2; margin: 0 0 10px; height: 36px; }
   .audience-tabs { justify-content: flex-start; gap: 22px; padding: 0 16px; }
   .audience-tabs a { font-size: 12px; padding: 8px 2px 10px; }
   .brand-rail { top: 0; }
 
   .main { padding: 20px 16px 56px; }
   .home { gap: 40px; margin-bottom: 40px; }
-  .hero-copy h1 { font-size: 30px; }
-  .hero-copy > p:not(.eyebrow) { font-size: 15px; margin-bottom: 18px; }
-  .hero-tiles {
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-columns: none;
-    grid-auto-columns: 72%;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    margin: 0 -16px;
-    padding: 0 16px;
-    scrollbar-width: none;
-  }
-  .hero-tiles::-webkit-scrollbar { display: none; }
-  .hero-tile { scroll-snap-align: start; }
-  .hero-tiles, .brand-strip, .product-rail { scroll-padding-inline: 16px; }
+  .brand-strip, .product-rail { scroll-padding-inline: 16px; }
 
   .brand-strip { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 40%; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; }
   .brand-card-name { font-size: 19px; }

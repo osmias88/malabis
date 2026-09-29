@@ -21,7 +21,7 @@ const state = {
 const dom = {
   search: el('search'), size: el('size'), sort: el('sort'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), showMore: el('show-more'),
-  home: el('home'), hero: el('hero'), brandStrip: el('brand-strip'), newRail: el('new-rail'), newNote: el('new-note'),
+  home: el('home'), brandStrip: el('brand-strip'), newRail: el('new-rail'), newNote: el('new-note'),
   featureTiles: el('feature-tiles'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
   activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
   rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
@@ -344,43 +344,11 @@ function renderBrandRail() {
   dom.brandList.innerHTML = `
     <button type="button" class="rail-link ${state.brand === 'all' ? 'is-current' : ''}" data-brand="all">
       <span>All brands</span><span class="rail-count">${tabProducts.length}</span>
-    </button>${brandItems}
-    <p class="rail-note">${state.tab === 'all' ? 'Everything' : TABS[state.tab].label}, newest first. Pick a brand to see its own collections.</p>`;
+    </button>${brandItems}`;
 }
 
 function renderHome() {
   const byNewest = sortProducts(state.products.filter((product) => product.images.length));
-
-  // Hero: the newest piece from each brand, so the reel is varied.
-  const heroPicks = [];
-  const seenBrands = new Set();
-  for (const product of byNewest) {
-    if (seenBrands.has(product.brandKey)) continue;
-    seenBrands.add(product.brandKey);
-    heroPicks.push(product);
-    if (heroPicks.length === 4) break;
-  }
-  for (const product of byNewest) {
-    if (heroPicks.length >= 4) break;
-    if (!heroPicks.includes(product)) heroPicks.push(product);
-  }
-  const brandCount = new Set(state.products.map((product) => product.brandKey)).size;
-  dom.hero.innerHTML = `
-    <div class="hero-copy">
-      <p class="eyebrow">New in this week</p>
-      <h1>Pakistani fashion, straight from the brands.</h1>
-      <p>Everyday kurtas, suits and western wear from ${brandCount} Pakistani labels, with prices in US dollars.</p>
-      <div class="hero-actions">
-        <a class="button-primary" href="?tab=women" data-tab-link="women">Shop women</a>
-        <a class="button-quiet" href="?tab=men" data-tab-link="men">Shop men</a>
-      </div>
-    </div>
-    <div class="hero-tiles">${heroPicks.map((product, index) => `
-      <button type="button" class="hero-tile" data-key="${escape(productKey(product))}">
-        <img src="${escape(product.images[0].url)}" alt="${escape(displayTitle(product))}" loading="${index < 2 ? 'eager' : 'lazy'}" />
-        <span class="hero-tile-caption"><span>${escape(cleanBrand(product.brandName))}</span>${escape(displayTitle(product))}</span>
-      </button>`).join('')}
-    </div>`;
 
   // Brand strip: each brand's newest piece as its cover.
   dom.brandStrip.innerHTML = state.brands.map((brand) => {
@@ -705,8 +673,6 @@ dom.sectionChips.addEventListener('click', (event) => {
 dom.home.addEventListener('click', (event) => {
   const tile = event.target.closest('[data-key]');
   if (tile) { openDetail(tile.dataset.key); return; }
-  const tabLink = event.target.closest('[data-tab-link]');
-  if (tabLink) { event.preventDefault(); navigate({ tab: tabLink.dataset.tabLink }); return; }
   const brand = event.target.closest('[data-brand]');
   if (brand) { navigate({ brand: brand.dataset.brand }); return; }
   const feature = event.target.closest('.feature-tile');
