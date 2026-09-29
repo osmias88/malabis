@@ -66,6 +66,8 @@ export const ProductSchema = z.object({
   source: z.string(),
   scrapedAt: z.string().datetime(),
   sourceUpdatedAt: z.string().datetime({ offset: true }).nullable().optional(),
+  /** When the brand first published the product, if the storefront says. */
+  publishedAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 export type Product = z.infer<typeof ProductSchema>;
 

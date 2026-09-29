@@ -4,7 +4,11 @@ import { BRANDS } from '../config/brands.js';
 import { supabaseAdmin } from './supabase.js';
 import { isCatalogueClothing, toStitchedOnly } from '../core/dress.js';
 
-export interface CatalogResult extends ScrapeResult {
+/** Catalogue products also carry when they were listed, for "newest first". */
+export type CatalogProduct = Product & { listedAt: string };
+
+export interface CatalogResult extends Omit<ScrapeResult, 'products'> {
+  products: CatalogProduct[];
   fx: {
     currency: 'USD';
     source: Converter['source'];
@@ -26,6 +30,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
       .select(`
         external_id, handle, title, description, url, product_type, vendor,
         tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
+        published_at, first_seen_at,
         active,
         brands!inner(key, name),
         variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
@@ -45,8 +50,11 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   const products = batches.flat()
     .map(toProduct)
     .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
-    .map(toStitchedOnly)
-    .filter((product): product is Product => product !== null && product.stockStatus !== 'out_of_stock')
+    .map((product) => {
+      const stitched = toStitchedOnly(product);
+      return stitched ? { ...stitched, listedAt: product.listedAt } : null;
+    })
+    .filter((product): product is CatalogProduct => product !== null && product.stockStatus !== 'out_of_stock')
     .map((product) => convertProduct(product, converter));
   return {
     products,
@@ -70,7 +78,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   };
 }
 
-function toProduct(row: Record<string, unknown>): Product {
+function toProduct(row: Record<string, unknown>): CatalogProduct {
   const brand = row.brands as { key: string; name: string };
   const currency = String(row.currency);
   const variants = (row.variants as Array<Record<string, unknown>>)
@@ -113,6 +121,9 @@ function toProduct(row: Record<string, unknown>): Product {
     source: String(row.source),
     scrapedAt: String(row.scraped_at),
     sourceUpdatedAt: row.source_updated_at ? String(row.source_updated_at) : null,
+    publishedAt: row.published_at ? String(row.published_at) : null,
+    // The brand's own launch date when known, otherwise when Malabis first saw it.
+    listedAt: String(row.published_at ?? row.first_seen_at ?? row.scraped_at),
   };
 }
 
@@ -130,7 +141,7 @@ async function getUsdConverter(): Promise<Converter> {
   return converter;
 }
 
-function convertProduct(product: Product, converter: Converter): Product {
+function convertProduct(product: CatalogProduct, converter: Converter): CatalogProduct {
   return {
     ...product,
     currency: 'USD',

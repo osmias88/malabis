@@ -158,8 +158,15 @@ export class SfccAdapter implements ScraperAdapter {
         .map((_, element) => $(element).text().trim())
         .get()
         .filter((url) => url.endsWith('.html'));
-      context.logger.debug(`sitemap yielded ${locs.length} product URLs`);
-      return locs;
+      // The sitemap is alphabetical by product code, so fragrances and old
+      // seasons come first; keep wanted collections and put preferred ones ahead.
+      const { productUrlPattern, preferUrlPattern } = context.brand.options ?? {};
+      const include = productUrlPattern ? new RegExp(productUrlPattern, 'i') : null;
+      const prefer = preferUrlPattern ? new RegExp(preferUrlPattern, 'i') : null;
+      const kept = include ? locs.filter((url) => include.test(url)) : locs;
+      const ordered = prefer ? [...kept.filter((url) => prefer.test(url)), ...kept.filter((url) => !prefer.test(url))] : kept;
+      context.logger.debug(`sitemap yielded ${locs.length} product URLs, ${ordered.length} kept`);
+      return ordered;
     } catch (error) {
       context.logger.warn(`sitemap fetch failed: ${sitemapUrl}`, { error: String(error) });
       return [];

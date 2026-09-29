@@ -22,8 +22,10 @@ export interface BrandConfig {
     hydrateVariants?: boolean;
     /** JSON-LD: sitemap to discover product URLs from. */
     sitemapUrl?: string;
-    /** JSON-LD: only keep URLs matching this pattern. */
+    /** JSON-LD / SFCC sitemap: only keep URLs matching this pattern. */
     productUrlPattern?: string;
+    /** SFCC sitemap: crawl URLs matching this pattern first (e.g. the current season). */
+    preferUrlPattern?: string;
     perHostDelayMs?: number;
   };
 }

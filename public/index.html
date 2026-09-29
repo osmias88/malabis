@@ -10,145 +10,100 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="header-left">
-        <button id="header-filter-btn" class="header-menu-btn" type="button" aria-label="Open filter and categories menu">
+      <div class="header-bar">
+        <button id="rail-open" class="icon-button rail-open" type="button" aria-label="Browse brands" aria-controls="brand-rail" aria-expanded="false">
           <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="menu-label">Filters</span>
-          <span id="header-filter-badge" class="filter-badge" hidden>0</span>
+          <span class="rail-open-label">Brands</span>
         </button>
         <a class="wordmark" href="/" aria-label="Malabis home">MALABIS</a>
+        <label class="search-box">
+          <span class="visually-hidden">Search pieces</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input id="search" type="search" placeholder="Search kurtas, polos, lawn…" autocomplete="off" />
+        </label>
+        <div class="header-actions">
+          <span class="location">Shipping across the US</span>
+          <button id="account-button" class="account-button" type="button">Sign in</button>
+        </div>
       </div>
-
-      <nav class="site-nav" aria-label="Primary navigation">
-        <a class="current" href="#catalogue" data-nav-dept="all">All</a>
-        <a href="#catalogue" data-nav-dept="women">Women</a>
-        <a href="#catalogue" data-nav-dept="men">Men</a>
-        <a href="#catalogue" data-nav-dept="kids">Kids</a>
+      <nav id="audience-tabs" class="audience-tabs" aria-label="Shop by">
+        <a href="?" data-tab="all" class="is-current">New In</a>
+        <a href="?tab=women" data-tab="women">Women</a>
+        <a href="?tab=men" data-tab="men">Men</a>
+        <a href="?tab=girls" data-tab="girls">Girls</a>
+        <a href="?tab=boys" data-tab="boys">Boys</a>
       </nav>
-
-      <div class="header-actions">
-        <span class="location">We ship across the United States</span>
-        <button id="account-button" class="account-button" type="button">Sign in</button>
-      </div>
     </header>
 
-    <main>
-      <section class="intro" aria-label="Featured showcase">
-        <div id="hero-reel" class="hero-reel" aria-hidden="true"></div>
-      </section>
+    <div class="shell">
+      <aside id="brand-rail" class="brand-rail" aria-label="Brands">
+        <div class="rail-head">
+          <p class="eyebrow">Brands</p>
+          <button id="rail-close" class="rail-close" type="button" aria-label="Close brands">×</button>
+        </div>
+        <nav id="brand-list" class="brand-list"></nav>
+      </aside>
+      <div id="rail-scrim" class="rail-scrim" hidden></div>
 
-      <section id="catalogue" class="catalogue" aria-labelledby="catalogue-title">
-        <div class="catalogue-heading">
-          <div>
-            <p id="catalogue-eyebrow" class="eyebrow">Explore Collections</p>
-            <h2 id="catalogue-title">Shop by Category</h2>
+      <main id="main" class="main">
+        <section id="home" class="home" aria-label="Featured" hidden>
+          <div id="hero" class="hero"></div>
+          <section class="home-block" aria-labelledby="brands-title">
+            <div class="block-head">
+              <h2 id="brands-title">Shop by brand</h2>
+            </div>
+            <div id="brand-strip" class="brand-strip"></div>
+          </section>
+          <section class="home-block" aria-labelledby="new-title">
+            <div class="block-head">
+              <h2 id="new-title">New this week</h2>
+              <p id="new-note" class="block-note"></p>
+            </div>
+            <div id="new-rail" class="product-rail"></div>
+          </section>
+          <section class="home-block" aria-labelledby="feature-title">
+            <div class="block-head">
+              <h2 id="feature-title">Everyday edits</h2>
+            </div>
+            <div id="feature-tiles" class="feature-tiles"></div>
+          </section>
+        </section>
+
+        <section id="listing" class="listing" aria-labelledby="listing-title">
+          <div class="listing-head">
+            <div>
+              <p id="listing-eyebrow" class="eyebrow">All brands</p>
+              <h1 id="listing-title">Newest arrivals</h1>
+            </div>
+            <div id="active-chips" class="active-chips"></div>
           </div>
-          <p id="updated" class="updated">Updating collection…</p>
-        </div>
-
-        <div id="breadcrumbs" class="breadcrumbs" hidden>
-          <button id="back-to-home" class="breadcrumb-back" type="button">← All Categories</button>
-          <span class="breadcrumb-separator">/</span>
-          <span id="breadcrumb-dept" class="breadcrumb-item">Women</span>
-          <span id="breadcrumb-sub-separator" class="breadcrumb-separator" hidden>/</span>
-          <span id="breadcrumb-sub" class="breadcrumb-item is-active" hidden>Eastern Wear</span>
-        </div>
-
-        <div id="subcategory-bar" class="subcategory-bar" hidden>
-          <div id="subcategory-pills" class="subcategory-pills" role="tablist" aria-label="Subcategories"></div>
-        </div>
-
-        <!-- 1-in-a-row Category Showcase Cards displayed downward with scroll transition -->
-        <div id="category-showcase-container" class="category-showcase-container">
-          <div id="category-list" class="category-list" aria-label="Explore Categories"></div>
-        </div>
-
-        <!-- Browsing utility bar in collection view -->
-        <div id="browsing-bar" class="browsing-bar" hidden>
-          <p id="result-count" class="result-count" aria-live="polite">Loading available pieces…</p>
-          <div class="browsing-actions">
-            <button id="filter-menu-btn" class="filter-menu-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
-              <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
-              <span>Filter & Sort</span>
-              <span id="filter-badge" class="filter-badge" hidden>0</span>
-            </button>
+          <div id="section-chips" class="section-chips" role="tablist" aria-label="Sections"></div>
+          <div class="toolbar">
+            <p id="result-count" class="result-count" aria-live="polite">Loading pieces…</p>
+            <div class="toolbar-controls">
+              <label><span class="visually-hidden">Size</span><select id="size"><option value="all">All sizes</option></select></label>
+              <label><span class="visually-hidden">Sort by</span>
+                <select id="sort">
+                  <option value="newest">Newest first</option>
+                  <option value="price-asc">Price: low to high</option>
+                  <option value="price-desc">Price: high to low</option>
+                </select>
+              </label>
+            </div>
           </div>
-        </div>
-
-        <div id="status" class="notice" aria-live="polite">Gathering the latest collection…</div>
-        <div id="grid" class="product-grid" aria-busy="true" hidden></div>
-      </section>
-    </main>
+          <div id="status" class="notice" aria-live="polite">Gathering the latest collection…</div>
+          <div id="grid" class="product-grid" aria-busy="true"></div>
+          <div class="more-wrap"><button id="show-more" class="more-button" type="button" hidden>Show more</button></div>
+        </section>
+      </main>
+    </div>
 
     <footer>
       <a class="wordmark footer-mark" href="/">MALABIS</a>
-      <p>Prices and availability are synchronized directly with brand storefronts.</p>
+      <p>Prices and availability are synchronised with each brand's own store. <span id="updated"></span></p>
     </footer>
 
-    <!-- Side Menu / Filter & Sort Drawer (Used on both Laptop and Mobile) -->
-    <div id="filter-drawer" class="drawer filter-drawer-modal" hidden>
-      <div class="filter-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="filter-drawer-title">
-        <div class="filter-drawer-header">
-          <div class="filter-drawer-heading">
-            <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
-            <h3 id="filter-drawer-title">Filters & Categories</h3>
-          </div>
-          <button id="filter-drawer-close" class="drawer-close" type="button" aria-label="Close menu">×</button>
-        </div>
-
-        <div class="filter-drawer-body">
-          <div class="filter-drawer-field">
-            <span>Department</span>
-            <div id="drawer-dept-tabs" class="drawer-dept-tabs" role="tablist">
-              <button class="drawer-dept-tab is-active" type="button" data-dept="all">All</button>
-              <button class="drawer-dept-tab" type="button" data-dept="women">Women</button>
-              <button class="drawer-dept-tab" type="button" data-dept="men">Men</button>
-              <button class="drawer-dept-tab" type="button" data-dept="kids">Kids</button>
-            </div>
-          </div>
-
-          <label class="filter-drawer-field">
-            <span>Search pieces</span>
-            <input id="search" type="search" placeholder="Kurta, lawn, embroidered…" autocomplete="off" />
-          </label>
-
-          <label class="filter-drawer-field">
-            <span>Brand</span>
-            <select id="brand"><option value="all">All brands</option></select>
-          </label>
-
-          <label class="filter-drawer-field">
-            <span>Category</span>
-            <select id="category"><option value="all">All categories</option></select>
-          </label>
-
-          <label class="filter-drawer-field">
-            <span>Size</span>
-            <select id="size"><option value="all">All sizes</option></select>
-          </label>
-
-          <label class="filter-drawer-field">
-            <span>Sort by</span>
-            <select id="sort">
-              <option value="recommended">Recommended</option>
-              <option value="newest">Newest first</option>
-              <option value="price-asc">Price: low to high</option>
-              <option value="price-desc">Price: high to low</option>
-              <option value="title">Name: A–Z</option>
-            </select>
-          </label>
-
-          <aside id="size-reference" class="size-reference" hidden aria-live="polite"></aside>
-        </div>
-
-        <div class="filter-drawer-footer">
-          <button id="clear" class="text-button" type="button">Reset</button>
-          <button id="apply-filters-btn" class="shop-link" type="button">View Results</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Product Details Drawer -->
+    <!-- Product details -->
     <div id="drawer" class="drawer" hidden>
       <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
         <button id="drawer-close" class="drawer-close" type="button" aria-label="Close product details">×</button>
@@ -173,9 +128,6 @@
       </div>
     </div>
 
-    <script type="module" src="/app.js"></script>
-  </body>
-</html>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

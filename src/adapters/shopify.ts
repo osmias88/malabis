@@ -47,6 +47,8 @@ interface ShopifyProduct {
   vendor?: string | null;
   product_type?: string | null;
   updated_at?: string;
+  published_at?: string | null;
+  created_at?: string | null;
   type?: string | null;
   tags?: string[] | string;
   options?: Array<ShopifyOption | string>;
@@ -201,8 +203,14 @@ export class ShopifyAdapter implements ScraperAdapter {
       source: this.name,
       scrapedAt: new Date().toISOString(),
       sourceUpdatedAt: raw.updated_at ?? null,
+      publishedAt: toIsoDate(raw.published_at ?? raw.created_at),
     };
   }
+}
+
+function toIsoDate(value: string | null | undefined): string | null {
+  const time = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
 function toJsonEndpoint(path: string): string {

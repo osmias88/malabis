@@ -1,4 +1,7 @@
 const el = (id) => document.getElementById(id);
+const PAGE_SIZE = 48;
+const NEW_DAYS = 14;
+
 const state = {
   products: [],
   brands: [],
@@ -6,133 +9,48 @@ const state = {
   auth: null,
   authConfig: null,
   authMode: 'login',
-  department: 'all', // 'all' (homepage category tiles) | 'women' | 'men' | 'kids'
-  subCategory: 'all', // 'all' | specific subcategory name
-  heroTimer: null,
-  heroSlideTimer: null,
+  tab: 'all', // 'all' | 'women' | 'men' | 'girls' | 'boys'
+  brand: 'all',
+  section: 'all',
+  size: 'all',
+  sort: 'newest',
+  query: '',
+  shown: PAGE_SIZE,
 };
 
 const dom = {
-  search: el('search'), brand: el('brand'), category: el('category'), size: el('size'),
-  sort: el('sort'), clear: el('clear'), count: el('result-count'),
-  updated: el('updated'), status: el('status'), grid: el('grid'), heroReel: el('hero-reel'),
-  sizeReference: el('size-reference'), drawer: el('drawer'), drawerBody: el('drawer-body'),
+  search: el('search'), size: el('size'), sort: el('sort'), count: el('result-count'),
+  updated: el('updated'), status: el('status'), grid: el('grid'), showMore: el('show-more'),
+  home: el('home'), hero: el('hero'), brandStrip: el('brand-strip'), newRail: el('new-rail'), newNote: el('new-note'),
+  featureTiles: el('feature-tiles'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
+  activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
+  rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
+  drawer: el('drawer'), drawerBody: el('drawer-body'),
   account: el('account-button'), authModal: el('auth-modal'), authForm: el('auth-form'),
   authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
   googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
-  categoryShowcaseContainer: el('category-showcase-container'),
-  categoryList: el('category-list'),
-  breadcrumbs: el('breadcrumbs'),
-  backToHome: el('back-to-home'),
-  breadcrumbDept: el('breadcrumb-dept'),
-  breadcrumbSub: el('breadcrumb-sub'),
-  breadcrumbSubSep: el('breadcrumb-sub-separator'),
-  subcategoryBar: el('subcategory-bar'),
-  subcategoryPills: el('subcategory-pills'),
-  browsingBar: el('browsing-bar'),
-  filterMenuBtn: el('filter-menu-btn'),
-  headerFilterBtn: el('header-filter-btn'),
-  filterDrawer: el('filter-drawer'),
-  filterDrawerClose: el('filter-drawer-close'),
-  applyFiltersBtn: el('apply-filters-btn'),
-  filterBadge: el('filter-badge'),
-  headerFilterBadge: el('header-filter-badge'),
-  drawerDeptTabs: el('drawer-dept-tabs'),
-  catalogueEyebrow: el('catalogue-eyebrow'),
-  catalogueTitle: el('catalogue-title'),
 };
 
-const STOCK_LABEL = { in_stock: 'In stock', partially_in_stock: 'Limited availability', out_of_stock: 'Sold out', unknown: 'Check availability' };
+const TABS = {
+  all: { label: 'New In', title: 'Newest arrivals' },
+  women: { label: 'Women', title: 'Women' },
+  men: { label: 'Men', title: 'Men' },
+  girls: { label: 'Girls', title: 'Girls' },
+  boys: { label: 'Boys', title: 'Boys' },
+};
+
+const FEATURES = [
+  { title: 'Women’s kurtas & suits', tab: 'women', section: 'Kurtas & Suits', match: (p) => audienceOf(p) === 'women' && garmentOf(p) === 'Kurtas & Suits' },
+  { title: 'Men’s shalwar kameez', tab: 'men', section: 'Shalwar Kameez', match: (p) => audienceOf(p) === 'men' && garmentOf(p) === 'Shalwar Kameez' },
+  { title: 'Girls’ dresses & co-ords', tab: 'girls', section: 'all', match: (p) => inTab(p, 'girls') },
+  { title: 'Boys’ kurta sets', tab: 'boys', section: 'all', match: (p) => inTab(p, 'boys') },
+];
+
 const money = (value) => new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: value.currency,
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  style: 'currency', currency: value.currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
 }).format(value.amount / 100);
 
-const DEPARTMENTS = {
-  women: {
-    label: 'Women',
-    eyebrow: "Women's Collection",
-    title: 'Women’s Clothing',
-    subcategories: [
-      { id: 'all', label: 'All Women' },
-      { id: 'Eastern wear', label: 'Eastern (Kurtas & Suits)' },
-      { id: 'Western', label: 'Western (Tops, Jeans & Co-ords)' },
-    ],
-  },
-  men: {
-    label: 'Men',
-    eyebrow: "Men's Collection",
-    title: 'Men’s Clothing',
-    subcategories: [
-      { id: 'all', label: 'All Men' },
-      { id: 'Eastern wear', label: 'Eastern (Shalwar Kameez & Kurtas)' },
-      { id: 'Western', label: 'Western (Polos, Shirts & Jeans)' },
-    ],
-  },
-  kids: {
-    label: 'Girls & Boys',
-    eyebrow: "Kids' Collection",
-    title: 'Girls & Boys Clothing',
-    subcategories: [
-      { id: 'all', label: 'All Kids' },
-      { id: 'girls', label: 'Girls' },
-      { id: 'boys', label: 'Boys' },
-    ],
-  },
-};
-
-const FEATURED_TILES = [
-  {
-    id: 'women-eastern',
-    dept: 'women',
-    sub: 'Eastern wear',
-    title: "Women's Eastern Wear",
-    subtitle: 'Kurtas, Shalwar Kameez & Stitched Suits',
-    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Eastern wear',
-  },
-  {
-    id: 'women-western',
-    dept: 'women',
-    sub: 'Western',
-    title: "Women's Western Wear",
-    subtitle: 'Tops, Jeans & Co-ord Sets',
-    match: (p) => productAudience(p) === 'women' && customerCategory(p) === 'Western',
-  },
-  {
-    id: 'men-eastern',
-    dept: 'men',
-    sub: 'Eastern wear',
-    title: "Men's Shalwar Kameez",
-    subtitle: 'Shalwar Kameez, Kurtas & Waistcoats',
-    match: (p) => productAudience(p) === 'men' && customerCategory(p) === 'Eastern wear',
-  },
-  {
-    id: 'men-western',
-    dept: 'men',
-    sub: 'Western',
-    title: "Men's Western Wear",
-    subtitle: 'Polos, Shirts, Jeans & Blazers',
-    match: (p) => productAudience(p) === 'men' && customerCategory(p) === 'Western',
-  },
-  {
-    id: 'girls',
-    dept: 'kids',
-    sub: 'girls',
-    title: "Girls' Clothing",
-    subtitle: 'Frocks, Kurtas & Everyday Wear',
-    match: (p) => productAudience(p) === 'girls',
-  },
-  {
-    id: 'boys',
-    dept: 'kids',
-    sub: 'boys',
-    title: "Boys' Clothing",
-    subtitle: 'Kurta Pajama, Polos & Jeans',
-    match: (p) => productAudience(p) === 'boys',
-  },
-];
+/* ---------- Auth ---------- */
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -157,23 +75,20 @@ async function loadAuth() {
   state.authConfig = config;
   const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
   if (hash.get('access_token')) {
-    state.auth = {
-      access_token: hash.get('access_token'),
-      refresh_token: hash.get('refresh_token'),
-    };
+    state.auth = { access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token') };
     history.replaceState(null, '', `${location.pathname}${location.search}`);
-    localStorage.setItem('malabis.auth', JSON.stringify(state.auth));
+    storageSet('malabis.auth', JSON.stringify(state.auth));
   }
 
-  const stored = localStorage.getItem('malabis.auth');
+  const stored = storageGet('malabis.auth');
   if (stored) {
     try {
       state.auth = JSON.parse(stored);
       if (state.auth.access_token) {
         state.auth.user = await authRequest('/user', { headers: { Authorization: `Bearer ${state.auth.access_token}` } });
-        localStorage.setItem('malabis.auth', JSON.stringify(state.auth));
+        storageSet('malabis.auth', JSON.stringify(state.auth));
       }
-    } catch { localStorage.removeItem('malabis.auth'); }
+    } catch { storageRemove('malabis.auth'); }
   }
   renderAccount();
 }
@@ -186,7 +101,7 @@ function renderAccount() {
 function openAuth() {
   if (state.auth?.user) {
     state.auth = null;
-    localStorage.removeItem('malabis.auth');
+    storageRemove('malabis.auth');
     renderAccount();
     return;
   }
@@ -213,7 +128,7 @@ async function submitAuth(event) {
     const result = await authRequest(path, { method: 'POST', body: JSON.stringify({ email: dom.authEmail.value.trim(), password: dom.authPassword.value }) });
     if (!result.access_token) { dom.authMessage.textContent = 'Check your email to confirm your account, then sign in.'; return; }
     state.auth = { access_token: result.access_token, refresh_token: result.refresh_token, user: result.user };
-    localStorage.setItem('malabis.auth', JSON.stringify(state.auth));
+    storageSet('malabis.auth', JSON.stringify(state.auth));
     renderAccount();
     closeAuth();
   } catch (error) { dom.authMessage.textContent = error.message; }
@@ -225,23 +140,25 @@ function signInWithGoogle() {
   location.href = `${state.authConfig.supabaseUrl}/auth/v1/authorize?${params}`;
 }
 
+function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function storageSet(key, value) { try { localStorage.setItem(key, value); } catch { /* storage unavailable */ } }
+function storageRemove(key) { try { localStorage.removeItem(key); } catch { /* storage unavailable */ } }
+
+/* ---------- Data ---------- */
+
 async function loadCatalogue() {
   try {
-    const { brands } = await getJson('/api/brands');
+    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=2000')]);
     state.brands = brands;
-    const heroResult = await getJson('/api/catalog?limit=5');
-    state.products = heroResult.products;
-    state.fx = heroResult.fx;
-    renderHeroReel();
-
-    const result = await getJson('/api/catalog?limit=2000');
     state.products = result.products;
     state.fx = result.fx;
-    renderHeroReel();
-    hydrateFilters();
-    render();
-    dom.grid.setAttribute('aria-busy', 'false');
+    const latest = Math.max(...state.products.map((product) => Date.parse(product.scrapedAt)));
+    if (Number.isFinite(latest)) {
+      dom.updated.textContent = `Last updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)}.`;
+    }
     dom.status.hidden = true;
+    dom.grid.setAttribute('aria-busy', 'false');
+    render();
   } catch (error) {
     dom.grid.setAttribute('aria-busy', 'false');
     dom.status.textContent = 'The collection could not be loaded. Please try again shortly.';
@@ -250,405 +167,13 @@ async function loadCatalogue() {
   }
 }
 
-function renderHeroReel() {
-  if (state.heroSlideTimer) window.clearInterval(state.heroSlideTimer);
-  if (state.heroTimer) window.clearInterval(state.heroTimer);
+function listedTime(product) { return Date.parse(product.listedAt ?? product.scrapedAt) || 0; }
+function isNew(product) { return Date.now() - listedTime(product) < NEW_DAYS * 86400000; }
+function brandName(key) { return cleanBrand(state.brands.find((brand) => brand.key === key)?.name ?? key); }
 
-  const featured = [...state.products]
-    .filter((product) => product.images[0]?.url)
-    .sort((left, right) => recommendationScore(right) - recommendationScore(left));
+/* ---------- Classification ---------- */
 
-  if (!featured.length) {
-    dom.heroReel.innerHTML = '';
-    return;
-  }
-
-  dom.heroReel.innerHTML = featured.map((product, index) => `
-    <figure class="hero-scene ${index === 0 ? 'is-active' : ''}" data-index="${index}">
-      <img ${index < 4 ? `src="${escape(product.images[0].url)}"` : `data-src="${escape(product.images[0].url)}"`} alt="" loading="${index === 0 ? 'eager' : 'lazy'}" />
-      <figcaption>
-        <span>${escape(cleanBrand(product.brandName))}</span>
-        <a href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">
-          <strong>${escape(product.title)}</strong>
-          <em>View piece ↗</em>
-        </a>
-      </figcaption>
-    </figure>`).join('');
-
-  const scenes = [...dom.heroReel.querySelectorAll('.hero-scene')];
-  let currentScene = 0;
-
-  function advanceHero() {
-    if (scenes.length < 2) return;
-    const prev = scenes[currentScene];
-    currentScene = (currentScene + 1) % scenes.length;
-    const next = scenes[currentScene];
-
-    const img = next.querySelector('img');
-    if (img?.dataset.src) {
-      img.src = img.dataset.src;
-      delete img.dataset.src;
-    }
-
-    prev.classList.remove('is-active');
-    next.classList.add('is-active');
-  }
-
-  state.heroSlideTimer = window.setInterval(advanceHero, 4500);
-
-  // Lazy load remaining hero images gradually
-  let nextLoad = 4;
-  state.heroTimer = window.setInterval(() => {
-    if (nextLoad >= featured.length) {
-      window.clearInterval(state.heroTimer);
-      return;
-    }
-    const img = dom.heroReel.querySelector(`.hero-scene[data-index="${nextLoad}"] img`);
-    if (img?.dataset.src) {
-      img.src = img.dataset.src;
-      delete img.dataset.src;
-    }
-    nextLoad += 1;
-  }, 2000);
-}
-
-function hydrateFilters() {
-  dom.brand.innerHTML = '<option value="all">All brands</option>' + state.brands.map((brand) => `<option value="${escape(brand.key)}">${escape(cleanBrand(brand.name))}</option>`).join('');
-  updateDependentFilters();
-  const latest = Math.max(...state.products.map((product) => Date.parse(product.scrapedAt)));
-  const catalogDate = Number.isFinite(latest)
-    ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)
-    : 'recently';
-  dom.updated.textContent = `Catalogue updated ${catalogDate}`;
-}
-
-function updateDependentFilters() {
-  const departmentProducts = getDepartmentFilteredProducts();
-  const brandProducts = dom.brand.value === 'all'
-    ? departmentProducts
-    : departmentProducts.filter((product) => product.brandKey === dom.brand.value);
-  const categories = unique(brandProducts.map((product) => customerCategory(product)).filter(Boolean)).sort();
-  replaceOptions(dom.category, 'All categories', categories);
-
-  const categoryProducts = dom.category.value === 'all'
-    ? brandProducts
-    : brandProducts.filter((product) => customerCategory(product) === dom.category.value);
-  const sizes = unique(categoryProducts.flatMap((product) => product.variants.map((variant) => variant.size).filter(isUsefulSize))).sort(sizeSort);
-  replaceOptions(dom.size, 'All sizes', sizes);
-  renderSizeReference(categoryProducts);
-}
-
-function getDepartmentFilteredProducts() {
-  return state.products.filter((product) => {
-    if (state.department === 'women') return productAudience(product) === 'women';
-    if (state.department === 'men') return productAudience(product) === 'men';
-    if (state.department === 'kids') return isKidsProduct(product);
-    return true;
-  });
-}
-
-function replaceOptions(select, allLabel, values) {
-  const selected = select.value;
-  select.innerHTML = `<option value="all">${allLabel}</option>` + values.map((value) => `<option value="${escape(value)}">${escape(value)}</option>`).join('');
-  select.value = values.includes(selected) ? selected : 'all';
-  select.disabled = values.length === 0;
-}
-
-function renderSizeReference(products) {
-  if (dom.brand.value === 'all') {
-    dom.sizeReference.hidden = true;
-    return;
-  }
-
-  const brand = state.brands.find((item) => item.key === dom.brand.value);
-  const referenceProduct = products.find((product) => product.variants.some((variant) => variant.size && variant.size !== 'Default')) ?? products[0];
-  const sizes = unique(products.flatMap((product) => product.variants.map((variant) => variant.size).filter(isUsefulSize))).sort(sizeSort);
-  if (!brand || !referenceProduct) {
-    dom.sizeReference.hidden = true;
-    return;
-  }
-
-  dom.sizeReference.innerHTML = `
-    <div><span>Official size reference</span><strong>${escape(cleanBrand(brand.name))}</strong></div>
-    <p>${sizes.length ? `Sizes currently listed: ${sizes.map(escape).join(' · ')}` : 'This category does not use clothing sizes.'}</p>
-    <a href="${escape(referenceProduct.url)}" target="_blank" rel="noreferrer noopener">Open official sizing on ${escape(cleanBrand(brand.name))} ↗</a>`;
-  dom.sizeReference.hidden = false;
-}
-
-function render() {
-  const term = dom.search.value.trim().toLowerCase();
-  const isHomepageView = state.department === 'all' && state.subCategory === 'all' && !term && dom.brand.value === 'all' && dom.category.value === 'all' && dom.size.value === 'all';
-
-  updateNavLinks();
-  updateDrawerDeptTabs();
-  updateFilterBadge();
-
-  if (isHomepageView) {
-    dom.catalogueEyebrow.textContent = 'Explore Collections';
-    dom.catalogueTitle.textContent = 'Shop by Category';
-    dom.breadcrumbs.hidden = true;
-    dom.subcategoryBar.hidden = true;
-    dom.browsingBar.hidden = true;
-    dom.sizeReference.hidden = true;
-    dom.grid.hidden = true;
-    renderCategoryList();
-    dom.categoryShowcaseContainer.hidden = false;
-    return;
-  }
-
-  // Browsing Mode: Clean vertical grid with menu-accessible filters
-  dom.categoryShowcaseContainer.hidden = true;
-  dom.breadcrumbs.hidden = false;
-  dom.browsingBar.hidden = false;
-  dom.grid.hidden = false;
-
-  renderBreadcrumbs();
-  renderSubcategoryPills();
-
-  let products = state.products.filter((product) => {
-    // Department filtering
-    if (state.department === 'women' && productAudience(product) !== 'women') return false;
-    if (state.department === 'men' && productAudience(product) !== 'men') return false;
-    if (state.department === 'kids' && !isKidsProduct(product)) return false;
-
-    // Subcategory pill filtering
-    if (state.subCategory !== 'all') {
-      if (state.department === 'kids') {
-        const aud = productAudience(product);
-        if (state.subCategory === 'girls' && aud !== 'girls') return false;
-        if (state.subCategory === 'boys' && aud !== 'boys') return false;
-      } else {
-        if (customerCategory(product) !== state.subCategory) return false;
-      }
-    }
-
-    // Drawer filters
-    if (dom.brand.value !== 'all' && product.brandKey !== dom.brand.value) return false;
-    if (dom.category.value !== 'all' && customerCategory(product) !== dom.category.value) return false;
-    if (dom.size.value !== 'all' && !product.variants.some((variant) => variant.size === dom.size.value)) return false;
-
-    // Text search
-    if (!term) return true;
-    return [product.title, product.brandName, product.productType, product.vendor, ...product.tags].filter(Boolean).join(' ').toLowerCase().includes(term);
-  });
-
-  if (dom.sort.value === 'recommended') products = [...products].sort((a, b) => recommendationScore(b) - recommendationScore(a));
-  if (dom.sort.value === 'price-asc') products = [...products].sort((a, b) => a.priceMin.amount - b.priceMin.amount);
-  if (dom.sort.value === 'price-desc') products = [...products].sort((a, b) => b.priceMin.amount - a.priceMin.amount);
-  if (dom.sort.value === 'title') products = [...products].sort((a, b) => a.title.localeCompare(b.title));
-  if (dom.sort.value === 'newest') products = [...products].sort((a, b) => b.scrapedAt.localeCompare(a.scrapedAt));
-
-  const deptInfo = DEPARTMENTS[state.department];
-  if (deptInfo) {
-    dom.catalogueEyebrow.textContent = deptInfo.eyebrow;
-    const activeSub = deptInfo.subcategories.find((s) => s.id === state.subCategory);
-    dom.catalogueTitle.textContent = activeSub && activeSub.id !== 'all' ? `${deptInfo.label} — ${activeSub.label}` : deptInfo.title;
-  } else {
-    dom.catalogueEyebrow.textContent = 'Browsing Collection';
-    dom.catalogueTitle.textContent = state.subCategory !== 'all' ? state.subCategory : 'All Products';
-  }
-
-  const scope = dom.brand.value === 'all' ? 'across all brands' : `from ${cleanBrand(state.brands.find((brand) => brand.key === dom.brand.value)?.name ?? 'this brand')}`;
-  dom.count.textContent = `${products.length} available ${products.length === 1 ? 'piece' : 'pieces'} ${scope}`;
-  dom.grid.innerHTML = productGrid(products);
-
-  for (const card of dom.grid.querySelectorAll('.product-card')) {
-    card.addEventListener('click', () => openDetail(card.dataset.key));
-    card.addEventListener('keydown', (event) => { if (event.key === 'Enter') openDetail(card.dataset.key); });
-  }
-}
-
-function updateFilterBadge() {
-  let activeFilters = 0;
-  if (dom.brand.value !== 'all') activeFilters += 1;
-  if (dom.category.value !== 'all') activeFilters += 1;
-  if (dom.size.value !== 'all') activeFilters += 1;
-  if (dom.sort.value !== 'recommended') activeFilters += 1;
-  if (dom.search.value.trim()) activeFilters += 1;
-  if (state.department !== 'all') activeFilters += 1;
-
-  const countStr = String(activeFilters);
-  if (activeFilters > 0) {
-    if (dom.filterBadge) { dom.filterBadge.hidden = false; dom.filterBadge.textContent = countStr; }
-    if (dom.headerFilterBadge) { dom.headerFilterBadge.hidden = false; dom.headerFilterBadge.textContent = countStr; }
-  } else {
-    if (dom.filterBadge) dom.filterBadge.hidden = true;
-    if (dom.headerFilterBadge) dom.headerFilterBadge.hidden = true;
-  }
-}
-
-function openFilterDrawer() {
-  dom.filterDrawer.hidden = false;
-  document.body.classList.add('drawer-open');
-  if (dom.filterMenuBtn) dom.filterMenuBtn.setAttribute('aria-expanded', 'true');
-  if (dom.headerFilterBtn) dom.headerFilterBtn.setAttribute('aria-expanded', 'true');
-}
-
-function closeFilterDrawer() {
-  dom.filterDrawer.hidden = true;
-  document.body.classList.remove('drawer-open');
-  if (dom.filterMenuBtn) dom.filterMenuBtn.setAttribute('aria-expanded', 'false');
-  if (dom.headerFilterBtn) dom.headerFilterBtn.setAttribute('aria-expanded', 'false');
-}
-
-function renderCategoryList() {
-  const tilesWithData = FEATURED_TILES.map((tile) => {
-    const matching = state.products.filter(tile.match);
-    if (!matching.length) return null;
-    const topItem = [...matching].sort((a, b) => recommendationScore(b) - recommendationScore(a))[0];
-    const image = topItem?.images[0]?.url;
-    return { ...tile, matchingCount: matching.length, image };
-  }).filter(Boolean);
-
-  if (!tilesWithData.length) {
-    dom.categoryList.innerHTML = '';
-    return;
-  }
-
-  dom.categoryList.innerHTML = tilesWithData.map((tile, idx) => `
-    <article class="category-banner-card" tabindex="0" data-dept="${escape(tile.dept)}" data-sub="${escape(tile.sub)}" data-idx="${idx}">
-      <figure class="category-banner-figure">
-        ${tile.image ? `<img loading="${idx < 2 ? 'eager' : 'lazy'}" src="${escape(tile.image)}" alt="${escape(tile.title)}" />` : '<span class="image-fallback">M</span>'}
-        <div class="category-banner-overlay">
-          <span class="category-banner-tag">${tile.matchingCount} Pieces Available</span>
-          <h3 class="category-banner-title">${escape(tile.title)}</h3>
-          <p class="category-banner-subtitle">${escape(tile.subtitle)}</p>
-          <span class="category-banner-btn">Explore Collection ↗</span>
-        </div>
-      </figure>
-    </article>
-  `).join('');
-
-  // Setup scroll-triggered smooth reveal transition
-  const cards = dom.categoryList.querySelectorAll('.category-banner-card');
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.12 });
-
-    cards.forEach((card) => observer.observe(card));
-  } else {
-    cards.forEach((card) => card.classList.add('is-visible'));
-  }
-
-  // Clicking any card transitions to that collection view
-  cards.forEach((card) => {
-    const handleSelect = () => {
-      state.department = card.dataset.dept;
-      state.subCategory = card.dataset.sub;
-      dom.brand.value = 'all';
-      dom.category.value = 'all';
-      dom.size.value = 'all';
-      dom.sort.value = 'recommended';
-      updateDependentFilters();
-      render();
-      document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-    card.addEventListener('click', handleSelect);
-    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSelect(); });
-  });
-}
-
-function renderBreadcrumbs() {
-  const deptInfo = DEPARTMENTS[state.department];
-  if (deptInfo) {
-    dom.breadcrumbDept.textContent = deptInfo.label;
-    dom.breadcrumbDept.hidden = false;
-  } else {
-    dom.breadcrumbDept.textContent = 'All Products';
-    dom.breadcrumbDept.hidden = false;
-  }
-
-  if (state.subCategory !== 'all') {
-    const subLabel = deptInfo?.subcategories.find((s) => s.id === state.subCategory)?.label ?? state.subCategory;
-    dom.breadcrumbSub.textContent = subLabel;
-    dom.breadcrumbSub.hidden = false;
-    dom.breadcrumbSubSep.hidden = false;
-  } else {
-    dom.breadcrumbSub.hidden = true;
-    dom.breadcrumbSubSep.hidden = true;
-  }
-}
-
-function renderSubcategoryPills() {
-  const deptInfo = DEPARTMENTS[state.department];
-  if (!deptInfo) {
-    dom.subcategoryBar.hidden = true;
-    return;
-  }
-
-  dom.subcategoryBar.hidden = false;
-  const pillsHtml = deptInfo.subcategories.map((sub) => {
-    let count = 0;
-    if (sub.id === 'all') {
-      count = state.products.filter((p) => {
-        if (state.department === 'women') return productAudience(p) === 'women';
-        if (state.department === 'men') return productAudience(p) === 'men';
-        if (state.department === 'kids') return isKidsProduct(p);
-        return true;
-      }).length;
-    } else if (state.department === 'kids') {
-      count = state.products.filter((p) => isKidsProduct(p) && productAudience(p) === sub.id).length;
-    } else {
-      count = state.products.filter((p) => {
-        if (state.department === 'women' && productAudience(p) !== 'women') return false;
-        if (state.department === 'men' && productAudience(p) !== 'men') return false;
-        return customerCategory(p) === sub.id;
-      }).length;
-    }
-
-    const isActive = state.subCategory === sub.id;
-    return `<button class="subcategory-pill ${isActive ? 'is-active' : ''}" type="button" data-sub="${escape(sub.id)}" aria-selected="${isActive}">
-      <span>${escape(sub.label)}</span>
-      <span class="pill-count">${count}</span>
-    </button>`;
-  }).join('');
-
-  dom.subcategoryPills.innerHTML = pillsHtml;
-
-  for (const pill of dom.subcategoryPills.querySelectorAll('.subcategory-pill')) {
-    pill.addEventListener('click', () => {
-      state.subCategory = pill.dataset.sub;
-      dom.category.value = 'all';
-      dom.size.value = 'all';
-      updateDependentFilters();
-      render();
-    });
-  }
-}
-
-function productGrid(products) {
-  return products.length
-    ? products.map(productCard).join('')
-    : '<div class="empty"><strong>No pieces found</strong><span>Try changing a filter or subcategory.</span></div>';
-}
-
-function isKidsProduct(product) {
-  const aud = productAudience(product);
-  return aud === 'kids' || aud === 'girls' || aud === 'boys';
-}
-
-// The server only sends everyday clothing (festive wear and non-clothing
-// items are filtered out), so each piece is either eastern or western.
-const EASTERN_WORDS = /\b(kameez|kurtas?|kurtis?|shalwar|salwar|sherwanis?|waistcoats?|jubbas?|pajamas?|pyjamas?|lehngas?|lehengas?|ghararas?|shararas?|angrakhas?|anarkalis?|kaftans?|abayas?|lawn|eastern|dupattas?)\b/;
-const WESTERN_WORDS = /\b(polos?|tees?|t-?shirts?|blazers?|jackets?|hoodies?|sweatshirts?|jeans|denims?|western|tank tops?|cardigans?|overcoats?|sweaters?|chinos?|shorts|joggers?|jumpsuits?)\b/;
-
-function customerCategory(product) {
-  const text = [product.productType, product.title, product.url].filter(Boolean).join(' ').toLowerCase().replace(/[-_/]+/g, ' ');
-  if (EASTERN_WORDS.test(text)) return 'Eastern wear';
-  if (WESTERN_WORDS.test(text)) return 'Western';
-  // Menswear without an eastern word (a plain "shirt" or "trouser") is western.
-  const aud = productAudience(product);
-  if (aud === 'men' || aud === 'boys') return 'Western';
-  return 'Eastern wear';
-}
-
-function productAudience(product) {
+function audienceOf(product) {
   const text = [product.title, product.productType, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
   if (/\bboy\b|\bboys\b|cambridge junior/.test(text)) return 'boys';
   if (/\bgirl\b|\bgirls\b|daughter/.test(text)) return 'girls';
@@ -672,70 +197,320 @@ function productAudience(product) {
   return 'women';
 }
 
-function slugify(value) { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-'); }
+// Kids pieces that don't say boys or girls appear under both.
+function inTab(product, tab) {
+  if (tab === 'all') return true;
+  const audience = audienceOf(product);
+  return audience === tab || (audience === 'kids' && (tab === 'girls' || tab === 'boys'));
+}
+
+const GARMENTS = [
+  ['Shalwar Kameez', /shalwar|salwar|kameez|pajama suit|pyjama suit|waistcoat suit|kurta pajama/],
+  ['Kurtas & Suits', /kurta|kurti|\d ?piece|\bsuit\b|lawn|pret|anarkali|kaftan/],
+  ['Co-ord Sets', /co-?ord|\bsets?\b|jumpsuit/],
+  ['Dresses', /dress|frock|maxi|gown/],
+  ['Polos & Tees', /polo|t-?shirt|\btees?\b|athleisure/],
+  ['Blazers & Jackets', /blazer|jacket|coat\b|waistcoat/],
+  ['Knitwear', /sweater|cardigan|hoodie|sweatshirt|knit/],
+  ['Shirts & Tops', /shirt|\btops?\b|blouse|tunic/],
+  ['Bottoms', /trouser|pant|jeans|denim|skirt|shorts|culotte|palazzo|bottom|chino|jogger/],
+];
+
+function garmentOf(product) {
+  const text = [product.title, product.productType, product.handle].filter(Boolean).join(' ').toLowerCase().replace(/[-_]+/g, ' ');
+  for (const [label, pattern] of GARMENTS) if (pattern.test(text)) return label;
+  return 'More';
+}
+
+// Brands whose own product types are their collection lines (Lawn, Pret, Fusion…).
+const BRAND_LINES = new Set(['afrozeh-pk', 'ethnic-pk']);
+
+function sectionOf(product) {
+  if (state.brand !== 'all' && BRAND_LINES.has(product.brandKey) && product.productType) return titleCase(product.productType);
+  return garmentOf(product);
+}
+
+/* ---------- Filtering ---------- */
+
+function scopedProducts({ ignoreSection = false, ignoreSize = false } = {}) {
+  const term = state.query.trim().toLowerCase();
+  return state.products.filter((product) => {
+    if (!inTab(product, state.tab)) return false;
+    if (state.brand !== 'all' && product.brandKey !== state.brand) return false;
+    if (!ignoreSection && state.section !== 'all' && sectionOf(product) !== state.section) return false;
+    if (!ignoreSize && state.size !== 'all' && !product.variants.some((variant) => variant.available && variant.size === state.size)) return false;
+    if (term) {
+      const haystack = [product.title, product.brandName, product.productType, garmentOf(product), ...product.tags].filter(Boolean).join(' ').toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
+    return true;
+  });
+}
+
+function sortProducts(products) {
+  const sorted = [...products];
+  if (state.sort === 'price-asc') return sorted.sort((a, b) => a.priceMin.amount - b.priceMin.amount);
+  if (state.sort === 'price-desc') return sorted.sort((a, b) => b.priceMin.amount - a.priceMin.amount);
+  return sorted.sort((a, b) => listedTime(b) - listedTime(a));
+}
+
+function countBy(products, keyOf) {
+  const counts = new Map();
+  for (const product of products) counts.set(keyOf(product), (counts.get(keyOf(product)) ?? 0) + 1);
+  return counts;
+}
+
+/* ---------- URL state ---------- */
+
+function readUrl() {
+  const params = new URLSearchParams(location.search);
+  state.tab = TABS[params.get('tab')] ? params.get('tab') : 'all';
+  state.brand = params.get('brand') ?? 'all';
+  state.section = params.get('section') ?? 'all';
+  state.size = params.get('size') ?? 'all';
+  state.sort = params.get('sort') === 'price-asc' || params.get('sort') === 'price-desc' ? params.get('sort') : 'newest';
+  state.query = params.get('q') ?? '';
+  dom.search.value = state.query;
+}
+
+function writeUrl(push) {
+  const params = new URLSearchParams();
+  if (state.tab !== 'all') params.set('tab', state.tab);
+  if (state.brand !== 'all') params.set('brand', state.brand);
+  if (state.section !== 'all') params.set('section', state.section);
+  if (state.size !== 'all') params.set('size', state.size);
+  if (state.sort !== 'newest') params.set('sort', state.sort);
+  if (state.query.trim()) params.set('q', state.query.trim());
+  const url = `${location.pathname}${params.size ? `?${params}` : ''}`;
+  if (push) history.pushState(null, '', url); else history.replaceState(null, '', url);
+}
+
+function navigate(changes, { scroll = true } = {}) {
+  Object.assign(state, changes);
+  if ('tab' in changes || 'brand' in changes) {
+    if (!('section' in changes)) state.section = 'all';
+    if (!('size' in changes)) state.size = 'all';
+  }
+  state.shown = PAGE_SIZE;
+  writeUrl(true);
+  render();
+  closeRail();
+  if (scroll) window.scrollTo({ top: isHomeView() ? 0 : document.getElementById('listing').offsetTop - headerHeight(), behavior: 'smooth' });
+}
+
+function headerHeight() { return document.querySelector('.site-header')?.offsetHeight ?? 0; }
+function isHomeView() { return state.tab === 'all' && state.brand === 'all' && state.section === 'all' && !state.query.trim(); }
+
+/* ---------- Rendering ---------- */
+
+function render() {
+  if (!state.products.length) return;
+  renderTabs();
+  renderBrandRail();
+  const home = isHomeView();
+  dom.home.hidden = !home;
+  if (home) renderHome();
+  renderListing();
+}
+
+function renderTabs() {
+  for (const link of dom.tabs.querySelectorAll('[data-tab]')) {
+    const current = link.dataset.tab === state.tab;
+    link.classList.toggle('is-current', current);
+    if (current) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  }
+}
+
+function renderBrandRail() {
+  const tabProducts = state.products.filter((product) => inTab(product, state.tab));
+  const brandCounts = countBy(tabProducts, (product) => product.brandKey);
+  const brands = state.brands.filter((brand) => brandCounts.get(brand.key));
+
+  const brandItems = brands.map((brand) => {
+    const active = state.brand === brand.key;
+    let sections = '';
+    if (active) {
+      const sectionCounts = countBy(tabProducts.filter((product) => product.brandKey === brand.key), sectionOf);
+      sections = `<ul class="rail-sections">${[...sectionCounts].sort((a, b) => b[1] - a[1]).map(([name, count]) => `
+        <li><button type="button" class="rail-section ${state.section === name ? 'is-current' : ''}" data-section="${escape(name)}">
+          <span>${escape(name)}</span><span class="rail-count">${count}</span></button></li>`).join('')}</ul>`;
+    }
+    return `<div class="rail-brand ${active ? 'is-open' : ''}">
+      <button type="button" class="rail-link ${active ? 'is-current' : ''}" data-brand="${escape(brand.key)}" aria-expanded="${active}">
+        <span>${escape(cleanBrand(brand.name))}</span><span class="rail-count">${brandCounts.get(brand.key)}</span>
+      </button>${sections}</div>`;
+  }).join('');
+
+  dom.brandList.innerHTML = `
+    <button type="button" class="rail-link ${state.brand === 'all' ? 'is-current' : ''}" data-brand="all">
+      <span>All brands</span><span class="rail-count">${tabProducts.length}</span>
+    </button>${brandItems}
+    <p class="rail-note">${state.tab === 'all' ? 'Everything' : TABS[state.tab].label}, newest first. Pick a brand to see its own collections.</p>`;
+}
+
+function renderHome() {
+  const byNewest = sortProducts(state.products.filter((product) => product.images.length));
+
+  // Hero: the newest piece from each brand, so the reel is varied.
+  const heroPicks = [];
+  const seenBrands = new Set();
+  for (const product of byNewest) {
+    if (seenBrands.has(product.brandKey)) continue;
+    seenBrands.add(product.brandKey);
+    heroPicks.push(product);
+    if (heroPicks.length === 4) break;
+  }
+  for (const product of byNewest) {
+    if (heroPicks.length >= 4) break;
+    if (!heroPicks.includes(product)) heroPicks.push(product);
+  }
+  const brandCount = new Set(state.products.map((product) => product.brandKey)).size;
+  dom.hero.innerHTML = `
+    <div class="hero-copy">
+      <p class="eyebrow">New in this week</p>
+      <h1>Pakistani fashion, straight from the brands.</h1>
+      <p>Everyday kurtas, suits and western wear from ${brandCount} Pakistani labels, with prices in US dollars.</p>
+      <div class="hero-actions">
+        <a class="button-primary" href="?tab=women" data-tab-link="women">Shop women</a>
+        <a class="button-quiet" href="?tab=men" data-tab-link="men">Shop men</a>
+      </div>
+    </div>
+    <div class="hero-tiles">${heroPicks.map((product, index) => `
+      <button type="button" class="hero-tile" data-key="${escape(productKey(product))}">
+        <img src="${escape(product.images[0].url)}" alt="${escape(displayTitle(product))}" loading="${index < 2 ? 'eager' : 'lazy'}" />
+        <span class="hero-tile-caption"><span>${escape(cleanBrand(product.brandName))}</span>${escape(displayTitle(product))}</span>
+      </button>`).join('')}
+    </div>`;
+
+  // Brand strip: each brand's newest piece as its cover.
+  dom.brandStrip.innerHTML = state.brands.map((brand) => {
+    const items = byNewest.filter((product) => product.brandKey === brand.key);
+    if (!items.length) return '';
+    return `<button type="button" class="brand-card" data-brand="${escape(brand.key)}">
+      <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
+      <span class="brand-card-name">${escape(cleanBrand(brand.name))}</span>
+      <span class="brand-card-count">${state.products.filter((product) => product.brandKey === brand.key).length} pieces</span>
+    </button>`;
+  }).join('');
+
+  const fresh = byNewest.filter(isNew);
+  const railItems = (fresh.length >= 6 ? fresh : byNewest).slice(0, 16);
+  dom.newNote.textContent = fresh.length ? `${fresh.length} pieces added in the last ${NEW_DAYS} days` : 'The latest pieces across every brand';
+  dom.newRail.innerHTML = railItems.map(productCard).join('');
+
+  dom.featureTiles.innerHTML = FEATURES.map((feature) => {
+    const items = sortProducts(state.products.filter(feature.match)).filter((product) => product.images.length);
+    if (!items.length) return '';
+    return `<button type="button" class="feature-tile" data-tab="${feature.tab}" data-section="${escape(feature.section)}">
+      <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
+      <span class="feature-copy"><strong>${escape(feature.title)}</strong><span>${items.length} pieces · Shop now →</span></span>
+    </button>`;
+  }).join('');
+}
+
+function renderListing() {
+  const home = isHomeView();
+  const brandLabel = state.brand === 'all' ? 'All brands' : brandName(state.brand);
+  dom.listingEyebrow.textContent = home ? 'Across every brand' : brandLabel;
+  if (state.query.trim()) dom.listingTitle.textContent = `Results for “${state.query.trim()}”`;
+  else if (home) dom.listingTitle.textContent = 'Everything, newest first';
+  else if (state.section !== 'all') dom.listingTitle.textContent = `${state.tab === 'all' ? '' : `${TABS[state.tab].label} · `}${state.section}`;
+  else if (state.brand !== 'all') dom.listingTitle.textContent = state.tab === 'all' ? `New from ${brandLabel}` : `${TABS[state.tab].label} at ${brandLabel}`;
+  else dom.listingTitle.textContent = TABS[state.tab].title;
+
+  // Active filter chips, each removable.
+  const chips = [];
+  if (state.tab !== 'all') chips.push({ label: TABS[state.tab].label, clear: { tab: 'all' } });
+  if (state.brand !== 'all') chips.push({ label: brandLabel, clear: { brand: 'all' } });
+  if (state.section !== 'all') chips.push({ label: state.section, clear: { section: 'all' } });
+  if (state.size !== 'all') chips.push({ label: `Size ${state.size}`, clear: { size: 'all' } });
+  if (state.query.trim()) chips.push({ label: `“${state.query.trim()}”`, clear: { query: '' } });
+  dom.activeChips.innerHTML = chips.map((chip, index) => `<button type="button" class="active-chip" data-chip="${index}" aria-label="Remove ${escape(chip.label)}">${escape(chip.label)} <span aria-hidden="true">×</span></button>`).join('')
+    + (chips.length > 1 ? '<button type="button" class="clear-all" data-chip="all">Clear all</button>' : '');
+  dom.activeChips.onclick = (event) => {
+    const button = event.target.closest('[data-chip]');
+    if (!button) return;
+    if (button.dataset.chip === 'all') { dom.search.value = ''; navigate({ tab: 'all', brand: 'all', section: 'all', size: 'all', query: '' }); return; }
+    const { clear } = chips[Number(button.dataset.chip)];
+    if ('query' in clear) dom.search.value = '';
+    navigate(clear, { scroll: false });
+  };
+
+  // Section chips: the brand's own lines, or garment types across brands.
+  const sectionCounts = countBy(scopedProducts({ ignoreSection: true }), sectionOf);
+  const sections = [...sectionCounts].sort((a, b) => b[1] - a[1]);
+  dom.sectionChips.hidden = home || sections.length < 2;
+  dom.sectionChips.innerHTML = `<button type="button" class="section-chip ${state.section === 'all' ? 'is-current' : ''}" data-section="all">All</button>`
+    + sections.map(([name, count]) => `<button type="button" class="section-chip ${state.section === name ? 'is-current' : ''}" data-section="${escape(name)}">${escape(name)} <span>${count}</span></button>`).join('');
+
+  const sizes = unique(scopedProducts({ ignoreSize: true }).flatMap((product) => product.variants.filter((variant) => variant.available).map((variant) => variant.size)).filter(isUsefulSize)).sort(sizeSort);
+  dom.size.innerHTML = '<option value="all">All sizes</option>' + sizes.map((size) => `<option value="${escape(size)}">${escape(size)}</option>`).join('');
+  dom.size.value = sizes.includes(state.size) ? state.size : 'all';
+  dom.sort.value = state.sort;
+
+  const products = sortProducts(scopedProducts());
+  dom.count.textContent = `${products.length} ${products.length === 1 ? 'piece' : 'pieces'}`;
+  dom.grid.innerHTML = products.length
+    ? products.slice(0, state.shown).map(productCard).join('')
+    : '<div class="empty"><strong>Nothing here yet</strong><span>Try another brand, section or size.</span></div>';
+  dom.showMore.hidden = products.length <= state.shown;
+  dom.showMore.textContent = `Show more (${products.length - Math.min(state.shown, products.length)} left)`;
+}
 
 function productCard(product) {
-  const image = product.images[0]?.url;
-  const discounted = product.variants.find((variant) => variant.compareAtPrice);
-  const sizes = unique(product.variants.filter((variant) => variant.available).map((variant) => variant.size).filter(Boolean));
-  const availability = availabilitySummary(product);
+  const [first, second] = product.images;
+  const discount = discountOf(product);
+  const badge = discount >= 0.05 ? `<span class="badge badge-sale">−${Math.round(discount * 100)}%</span>` : isNew(product) ? '<span class="badge">New</span>' : '';
+  const compare = product.variants.find((variant) => variant.compareAtPrice)?.compareAtPrice;
   const price = product.priceMin.amount === product.priceMax.amount ? money(product.priceMin) : `From ${money(product.priceMin)}`;
   return `<article class="product-card" tabindex="0" data-key="${escape(productKey(product))}">
-    <figure>${image ? `<img loading="lazy" src="${escape(image)}" alt="${escape(product.title)}" />` : '<span class="image-fallback">M</span>'}<span class="stock-label ${escape(product.stockStatus)}">${STOCK_LABEL[product.stockStatus]}</span></figure>
-    <div class="product-info"><p class="product-brand">${escape(cleanBrand(product.brandName))}</p><h3>${escape(product.title)}</h3>
-    <div class="product-price"><span>${price}</span>${discounted ? `<del>${money(discounted.compareAtPrice)}</del>` : ''}</div>
-    <p class="available-sizes">${availability || (sizes.length ? `Available: ${sizes.slice(0, 6).map(escape).join(' · ')}` : 'View availability')}</p></div></article>`;
+    <figure class="${second ? 'has-alt' : ''}">
+      ${first ? `<img loading="lazy" src="${escape(first.url)}" alt="${escape(displayTitle(product))}" />` : '<span class="image-fallback">M</span>'}
+      ${second ? `<img class="alt-image" loading="lazy" src="${escape(second.url)}" alt="" />` : ''}
+      ${badge}
+    </figure>
+    <div class="product-info">
+      <p class="product-brand">${escape(cleanBrand(product.brandName))}</p>
+      <h3>${escape(displayTitle(product))}</h3>
+      <p class="product-price"><span>${price}</span>${compare && discount >= 0.05 ? `<del>${money(compare)}</del>` : ''}</p>
+    </div>
+  </article>`;
 }
 
-function availabilitySummary(product) {
-  if (product.stockStatus !== 'partially_in_stock') return '';
-  const available = product.variants.filter((variant) => variant.available).map((variant) => variant.size ?? variant.title);
-  const unavailable = product.variants.filter((variant) => !variant.available).map((variant) => variant.size ?? variant.title);
-  const parts = [];
-  if (available.length) parts.push(`Available: ${available.slice(0, 3).map(escape).join(' · ')}`);
-  if (unavailable.length) parts.push(`Sold out: ${unavailable.slice(0, 2).map(escape).join(' · ')}`);
-  return parts.join(' · ');
-}
-
-function recommendationScore(product) {
-  const ageDays = Math.max(0, (Date.now() - Date.parse(product.scrapedAt)) / 86400000);
-  const newness = Math.max(0, 1 - ageDays / 30);
-  const stock = product.stockStatus === 'in_stock' ? 1 : product.stockStatus === 'partially_in_stock' ? 0.65 : 0;
-  const discount = product.variants.reduce((best, variant) => {
+function discountOf(product) {
+  return product.variants.reduce((best, variant) => {
     if (!variant.compareAtPrice?.amount || !variant.price.amount) return best;
     return Math.max(best, 1 - variant.price.amount / variant.compareAtPrice.amount);
   }, 0);
-  const imageQuality = product.images.length >= 4 ? 1 : product.images.length >= 2 ? 0.7 : product.images.length ? 0.4 : 0;
-  const demandProxy = demandProxyScore(product);
-
-  return newness * 0.25 + stock * 0.25 + Math.min(discount, 0.5) * 0.2 + imageQuality * 0.15 + demandProxy * 0.15;
 }
 
-function demandProxyScore(product) {
-  const text = [product.title, product.productType, product.vendor, ...product.tags].filter(Boolean).join(' ').toLowerCase();
-  const signals = ['new', 'festive', 'formal', 'lawn', 'kurta', 'suit', 'stitched', 'western', 'wedding', 'best seller', 'bestseller'];
-  const matches = signals.filter((signal) => text.includes(signal)).length;
-  return Math.min(1, matches / 3);
+// Store titles are often SKU codes in capitals ("DRESS (E2264/301/422)").
+function displayTitle(product) {
+  let title = product.title.replace(/\s*\((?=[^)]*\d)[A-Z0-9/ -]+\)\s*$/i, '').replace(/\s+/g, ' ').trim();
+  if (title === title.toUpperCase()) title = titleCase(title);
+  if (product.brandKey === 'ethnic-pk' && product.productType && title.split(' ').length <= 2) title = `${titleCase(product.productType)} ${title}`;
+  return title || product.title;
 }
+
+function titleCase(value) {
+  return value.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (match, lead, letter) => lead + letter.toUpperCase());
+}
+
+/* ---------- Product detail ---------- */
 
 function formatProductDescription(raw) {
   if (!raw) return '';
-  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return '';
 
   const sections = [];
   let currentHeader = '';
   let currentItems = [];
-
   const headerRegex = /^(product details|details|care instructions|care|size & fit|specifications|fabric details|description|disclaimer|composition|material|fit & styling|fabric & care):?$/i;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const line of lines) {
     if (headerRegex.test(line)) {
-      if (currentItems.length || currentHeader) {
-        sections.push({ header: currentHeader, items: currentItems });
-        currentItems = [];
-      }
+      if (currentItems.length || currentHeader) { sections.push({ header: currentHeader, items: currentItems }); currentItems = []; }
       currentHeader = line.replace(/:$/, '').trim();
     } else if (/^[-•*]\s*/.test(line)) {
       currentItems.push({ type: 'bullet', text: line.replace(/^[-•*]\s*/, '') });
@@ -743,52 +518,36 @@ function formatProductDescription(raw) {
       const idx = line.indexOf(':');
       const key = line.slice(0, idx).trim();
       const val = line.slice(idx + 1).trim();
-      if (val) {
-        currentItems.push({ type: 'keyval', key, val });
-      } else {
-        if (currentItems.length || currentHeader) {
-          sections.push({ header: currentHeader, items: currentItems });
-          currentItems = [];
-        }
+      if (val) currentItems.push({ type: 'keyval', key, val });
+      else {
+        if (currentItems.length || currentHeader) { sections.push({ header: currentHeader, items: currentItems }); currentItems = []; }
         currentHeader = key;
       }
     } else {
       currentItems.push({ type: 'text', text: line });
     }
   }
-  if (currentItems.length || currentHeader) {
-    sections.push({ header: currentHeader, items: currentItems });
-  }
+  if (currentItems.length || currentHeader) sections.push({ header: currentHeader, items: currentItems });
 
   let html = '<div class="product-description-formatted">';
-  for (const sec of sections) {
+  for (const section of sections) {
     html += '<div class="desc-block">';
-    if (sec.header) {
-      html += `<h4 class="desc-heading">${escape(sec.header)}</h4>`;
-    }
+    if (section.header) html += `<h4 class="desc-heading">${escape(section.header)}</h4>`;
     const bullets = [];
-    for (const item of sec.items) {
-      if (item.type === 'bullet') {
-        bullets.push(item.text);
-      } else {
-        if (bullets.length) {
-          html += `<ul class="desc-bullet-list">${bullets.map((b) => `<li>${escape(b)}</li>`).join('')}</ul>`;
-          bullets.length = 0;
-        }
-        if (item.type === 'keyval') {
-          html += `<div class="desc-keyval"><span class="desc-key">${escape(item.key)}</span><span class="desc-val">${escape(item.val)}</span></div>`;
-        } else if (item.type === 'text') {
-          html += `<p class="desc-paragraph">${escape(item.text)}</p>`;
-        }
-      }
+    const flush = () => {
+      if (bullets.length) html += `<ul class="desc-bullet-list">${bullets.map((bullet) => `<li>${escape(bullet)}</li>`).join('')}</ul>`;
+      bullets.length = 0;
+    };
+    for (const item of section.items) {
+      if (item.type === 'bullet') { bullets.push(item.text); continue; }
+      flush();
+      if (item.type === 'keyval') html += `<div class="desc-keyval"><span class="desc-key">${escape(item.key)}</span><span class="desc-val">${escape(item.val)}</span></div>`;
+      else html += `<p class="desc-paragraph">${escape(item.text)}</p>`;
     }
-    if (bullets.length) {
-      html += `<ul class="desc-bullet-list">${bullets.map((b) => `<li>${escape(b)}</li>`).join('')}</ul>`;
-    }
+    flush();
     html += '</div>';
   }
-  html += '</div>';
-  return html;
+  return `${html}</div>`;
 }
 
 let activeDetailSlider = null;
@@ -797,79 +556,67 @@ function openDetail(key) {
   const product = state.products.find((item) => productKey(item) === key);
   if (!product) return;
 
-  const images = product.images && product.images.length ? product.images : [{ url: '', alt: product.title }];
+  const images = product.images.length ? product.images : [{ url: '', alt: product.title }];
   const variants = product.variants.map((variant) => `<div class="variant-row"><span>${escape(variant.size ?? variant.title)}</span><span>${variant.available ? 'Available' : 'Sold out'}</span><strong>${money(variant.price)}</strong></div>`).join('');
-  const formattedDesc = formatProductDescription(product.description);
+  const brand = cleanBrand(product.brandName);
 
   dom.drawerBody.innerHTML = `
     <div class="detail-layout">
       <div class="detail-gallery-container">
-        <div class="detail-slider" id="detail-slider" tabindex="0" role="region" aria-label="Product images slideshow">
+        <div class="detail-slider" id="detail-slider" tabindex="0" role="region" aria-label="Product images">
           <div class="detail-slides-track">
             ${images.map((image, idx) => `
               <div class="detail-slide ${idx === 0 ? 'is-active' : ''}" data-index="${idx}">
                 ${image.url ? `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" loading="${idx === 0 ? 'eager' : 'lazy'}" />` : '<span class="image-fallback">M</span>'}
-              </div>
-            `).join('')}
+              </div>`).join('')}
           </div>
           ${images.length > 1 ? `
             <button class="slider-arrow slider-prev" id="slider-prev-btn" type="button" aria-label="Previous image">‹</button>
             <button class="slider-arrow slider-next" id="slider-next-btn" type="button" aria-label="Next image">›</button>
-            <div class="slider-counter"><span id="slider-current-num">1</span> / ${images.length}</div>
-          ` : ''}
+            <div class="slider-counter"><span id="slider-current-num">1</span> / ${images.length}</div>` : ''}
         </div>
         ${images.length > 1 ? `
           <div class="detail-thumbnails" id="detail-thumbnails">
             ${images.map((image, idx) => `
               <button class="detail-thumb ${idx === 0 ? 'is-active' : ''}" type="button" data-index="${idx}" aria-label="View photo ${idx + 1}">
                 <img src="${escape(image.url)}" alt="" loading="lazy" />
-              </button>
-            `).join('')}
-          </div>
-        ` : ''}
+              </button>`).join('')}
+          </div>` : ''}
       </div>
 
       <div class="detail-copy">
-        <p class="eyebrow">${escape(cleanBrand(product.brandName))}</p>
-        <h2 id="drawer-title">${escape(product.title)}</h2>
+        <p class="eyebrow">${escape(brand)} · ${escape(sectionOf(product))}</p>
+        <h2 id="drawer-title">${escape(displayTitle(product))}</h2>
         <p class="detail-price">${money(product.priceMin)}</p>
-
-        ${formattedDesc}
-
+        ${formatProductDescription(product.description)}
         <div class="variant-list">
-          <h4 class="variant-heading">Available Sizes & Inventory</h4>
+          <h4 class="variant-heading">Sizes & availability</h4>
           ${variants}
         </div>
-
         <div class="detail-actions">
-          <a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(cleanBrand(product.brandName))} ↗</a>
-          <a class="size-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">Open official product sizing ↗</a>
+          <a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(brand)} ↗</a>
+          <button type="button" class="size-link" data-more-brand="${escape(product.brandKey)}">More from ${escape(brand)}</button>
         </div>
-        <p class="detail-note">Purchases and official sizing details are provided on the brand’s product page.</p>
+        <p class="detail-note">Purchases and official sizing are on the brand’s own product page.</p>
       </div>
     </div>`;
 
   dom.drawer.hidden = false;
   document.body.classList.add('drawer-open');
-
-  // Initialize interactive slider & swipe
+  dom.drawerBody.querySelector('[data-more-brand]').addEventListener('click', (event) => {
+    closeDetail();
+    navigate({ brand: event.currentTarget.dataset.moreBrand, tab: state.tab });
+  });
   initDetailSlider(images.length);
 }
 
 function initDetailSlider(totalImages) {
-  if (totalImages <= 1) {
-    activeDetailSlider = null;
-    return;
-  }
+  if (totalImages <= 1) { activeDetailSlider = null; return; }
 
   const sliderEl = document.getElementById('detail-slider');
-  const prevBtn = document.getElementById('slider-prev-btn');
-  const nextBtn = document.getElementById('slider-next-btn');
   const currentNum = document.getElementById('slider-current-num');
-  const thumbsContainer = document.getElementById('detail-thumbnails');
   const slides = [...sliderEl.querySelectorAll('.detail-slide')];
-  const thumbs = thumbsContainer ? [...thumbsContainer.querySelectorAll('.detail-thumb')] : [];
-
+  const thumbs = [...(document.getElementById('detail-thumbnails')?.querySelectorAll('.detail-thumb') ?? [])];
   let currentIndex = 0;
 
   function showSlide(index) {
@@ -877,51 +624,24 @@ function initDetailSlider(totalImages) {
     slides.forEach((slide, i) => slide.classList.toggle('is-active', i === currentIndex));
     thumbs.forEach((thumb, i) => thumb.classList.toggle('is-active', i === currentIndex));
     if (currentNum) currentNum.textContent = String(currentIndex + 1);
-
-    // Keep active thumbnail visible in scroll view
-    if (thumbs[currentIndex]) {
-      thumbs[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
+    thumbs[currentIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 
-  activeDetailSlider = {
-    prev: () => showSlide(currentIndex - 1),
-    next: () => showSlide(currentIndex + 1),
-  };
+  activeDetailSlider = { prev: () => showSlide(currentIndex - 1), next: () => showSlide(currentIndex + 1) };
+  document.getElementById('slider-prev-btn')?.addEventListener('click', (e) => { e.stopPropagation(); activeDetailSlider.prev(); });
+  document.getElementById('slider-next-btn')?.addEventListener('click', (e) => { e.stopPropagation(); activeDetailSlider.next(); });
+  thumbs.forEach((thumb) => thumb.addEventListener('click', () => showSlide(Number(thumb.dataset.index))));
 
-  prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); activeDetailSlider.prev(); });
-  nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); activeDetailSlider.next(); });
-
-  thumbs.forEach((thumb) => {
-    thumb.addEventListener('click', () => showSlide(Number(thumb.dataset.index)));
-  });
-
-  // Touch & Swipe gesture handling
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let touchEndX = 0;
-  let touchEndY = 0;
-
-  sliderEl.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
-  }, { passive: true });
-
+  let startX = 0;
+  let startY = 0;
+  sliderEl.addEventListener('touchstart', (e) => { startX = e.changedTouches[0].screenX; startY = e.changedTouches[0].screenY; }, { passive: true });
   sliderEl.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    touchEndY = e.changedTouches[0].screenY;
-    handleSwipe();
-  }, { passive: true });
-
-  function handleSwipe() {
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-    // Ensure horizontal gesture exceeds vertical scrolling gesture
+    const diffX = e.changedTouches[0].screenX - startX;
+    const diffY = e.changedTouches[0].screenY - startY;
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
-      if (diffX < 0) activeDetailSlider.next(); // Swiped left -> next
-      else activeDetailSlider.prev(); // Swiped right -> prev
+      if (diffX < 0) activeDetailSlider.next(); else activeDetailSlider.prev();
     }
-  }
+  }, { passive: true });
 }
 
 function closeDetail() {
@@ -930,112 +650,100 @@ function closeDetail() {
   activeDetailSlider = null;
 }
 
-function clearFilters() {
-  state.department = 'all';
-  state.subCategory = 'all';
-  dom.search.value = '';
-  dom.brand.value = 'all';
-  dom.category.value = 'all';
-  dom.size.value = 'all';
-  dom.sort.value = 'recommended';
-  updateDependentFilters();
-  render();
-  closeFilterDrawer();
+/* ---------- Brand rail (drawer on phones) ---------- */
+
+function openRail() {
+  dom.rail.classList.add('is-open');
+  dom.railScrim.hidden = false;
+  dom.railOpen.setAttribute('aria-expanded', 'true');
+  document.body.classList.add('drawer-open');
 }
+
+function closeRail() {
+  if (!dom.rail.classList.contains('is-open')) return;
+  dom.rail.classList.remove('is-open');
+  dom.railScrim.hidden = true;
+  dom.railOpen.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('drawer-open');
+}
+
+/* ---------- Helpers ---------- */
 
 function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
 function unique(values) { return [...new Set(values)]; }
-function isUsefulSize(size) {
-  return Boolean(size) && size !== 'Default' && !/(?:\bML\b|METERS?|\bPIECE\b)/i.test(size);
-}
+function isUsefulSize(size) { return Boolean(size) && size !== 'Default' && !/(?:\bML\b|METERS?|\bPIECE\b)/i.test(size); }
 function sizeSort(left, right) {
-  const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'ONE SIZE', 'UNSTITCHED'];
+  const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'FREE'];
   const leftIndex = order.indexOf(left); const rightIndex = order.indexOf(right);
   if (leftIndex !== -1 || rightIndex !== -1) return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
   return left.localeCompare(right, undefined, { numeric: true });
 }
 function escape(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`); }
 
-dom.brand.addEventListener('change', () => { dom.category.value = 'all'; dom.size.value = 'all'; updateDependentFilters(); render(); });
-dom.category.addEventListener('change', () => { dom.size.value = 'all'; updateDependentFilters(); render(); });
-for (const control of [dom.search, dom.size, dom.sort]) control.addEventListener('input', render);
+/* ---------- Events ---------- */
 
-function updateDrawerDeptTabs() {
-  if (!dom.drawerDeptTabs) return;
-  for (const tab of dom.drawerDeptTabs.querySelectorAll('.drawer-dept-tab')) {
-    const selected = tab.dataset.dept === state.department;
-    tab.classList.toggle('is-active', selected);
-    tab.setAttribute('aria-selected', String(selected));
-  }
-}
+dom.tabs.addEventListener('click', (event) => {
+  const link = event.target.closest('[data-tab]');
+  if (!link) return;
+  event.preventDefault();
+  navigate({ tab: link.dataset.tab });
+});
 
-function updateNavLinks() {
-  for (const link of document.querySelectorAll('[data-nav-dept]')) {
-    const selected = link.dataset.navDept === state.department;
-    link.classList.toggle('current', selected);
-  }
-}
+dom.brandList.addEventListener('click', (event) => {
+  const section = event.target.closest('[data-section]');
+  if (section) { navigate({ section: section.dataset.section === state.section ? 'all' : section.dataset.section }); return; }
+  const brand = event.target.closest('[data-brand]');
+  if (brand) navigate({ brand: brand.dataset.brand });
+});
 
-if (dom.drawerDeptTabs) {
-  for (const tab of dom.drawerDeptTabs.querySelectorAll('.drawer-dept-tab')) {
-    tab.addEventListener('click', () => {
-      state.department = tab.dataset.dept;
-      state.subCategory = 'all';
-      dom.brand.value = 'all';
-      dom.category.value = 'all';
-      dom.size.value = 'all';
-      updateDependentFilters();
-      updateDrawerDeptTabs();
-      render();
-    });
-  }
-}
+dom.sectionChips.addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-section]');
+  if (chip) navigate({ section: chip.dataset.section }, { scroll: false });
+});
 
-for (const link of document.querySelectorAll('[data-nav-dept]')) {
-  link.addEventListener('click', (e) => {
-    e.preventDefault();
-    state.department = link.dataset.navDept;
-    state.subCategory = 'all';
-    dom.brand.value = 'all';
-    dom.category.value = 'all';
-    dom.size.value = 'all';
-    updateDependentFilters();
-    updateDrawerDeptTabs();
-    render();
-    document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
+dom.home.addEventListener('click', (event) => {
+  const tile = event.target.closest('[data-key]');
+  if (tile) { openDetail(tile.dataset.key); return; }
+  const tabLink = event.target.closest('[data-tab-link]');
+  if (tabLink) { event.preventDefault(); navigate({ tab: tabLink.dataset.tabLink }); return; }
+  const brand = event.target.closest('[data-brand]');
+  if (brand) { navigate({ brand: brand.dataset.brand }); return; }
+  const feature = event.target.closest('.feature-tile');
+  if (feature) navigate({ tab: feature.dataset.tab, section: feature.dataset.section });
+});
+
+dom.grid.addEventListener('click', (event) => {
+  const card = event.target.closest('.product-card');
+  if (card) openDetail(card.dataset.key);
+});
+for (const container of [dom.grid, dom.newRail]) {
+  container.addEventListener('keydown', (event) => {
+    const card = event.target.closest('.product-card');
+    if (card && event.key === 'Enter') openDetail(card.dataset.key);
   });
 }
 
-dom.backToHome.addEventListener('click', () => {
-  state.department = 'all';
-  state.subCategory = 'all';
-  dom.brand.value = 'all';
-  dom.category.value = 'all';
-  dom.size.value = 'all';
-  updateDependentFilters();
-  updateDrawerDeptTabs();
-  render();
+dom.showMore.addEventListener('click', () => { state.shown += PAGE_SIZE; renderListing(); });
+dom.size.addEventListener('change', () => navigate({ size: dom.size.value }, { scroll: false }));
+dom.sort.addEventListener('change', () => navigate({ sort: dom.sort.value }, { scroll: false }));
+
+let searchTimer = null;
+dom.search.addEventListener('input', () => {
+  window.clearTimeout(searchTimer);
+  searchTimer = window.setTimeout(() => {
+    state.query = dom.search.value;
+    state.shown = PAGE_SIZE;
+    writeUrl(false);
+    render();
+  }, 180);
 });
 
-dom.breadcrumbDept.addEventListener('click', () => {
-  state.subCategory = 'all';
-  dom.category.value = 'all';
-  dom.size.value = 'all';
-  updateDependentFilters();
-  render();
-});
+dom.railOpen.addEventListener('click', openRail);
+dom.railClose.addEventListener('click', closeRail);
+dom.railScrim.addEventListener('click', closeRail);
+window.addEventListener('popstate', () => { readUrl(); render(); });
 
-if (dom.headerFilterBtn) dom.headerFilterBtn.addEventListener('click', openFilterDrawer);
-if (dom.filterMenuBtn) dom.filterMenuBtn.addEventListener('click', openFilterDrawer);
-dom.filterDrawerClose.addEventListener('click', closeFilterDrawer);
-dom.applyFiltersBtn.addEventListener('click', () => {
-  closeFilterDrawer();
-  document.getElementById('catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-dom.filterDrawer.addEventListener('click', (event) => { if (event.target === dom.filterDrawer) closeFilterDrawer(); });
-
-dom.clear.addEventListener('click', clearFilters);
 dom.account.addEventListener('click', openAuth);
 dom.authClose.addEventListener('click', closeAuth);
 dom.authModal.addEventListener('click', (event) => { if (event.target === dom.authModal) closeAuth(); });
@@ -1045,16 +753,13 @@ dom.googleAuth.addEventListener('click', signInWithGoogle);
 el('drawer-close').addEventListener('click', closeDetail);
 dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') {
-    closeDetail();
-    closeFilterDrawer();
-    closeAuth();
-  } else if (!dom.drawer.hidden && activeDetailSlider) {
+  if (event.key === 'Escape') { closeDetail(); closeAuth(); closeRail(); }
+  else if (!dom.drawer.hidden && activeDetailSlider) {
     if (event.key === 'ArrowLeft') activeDetailSlider.prev();
     else if (event.key === 'ArrowRight') activeDetailSlider.next();
   }
 });
 
-await loadAuth();
-updateDrawerDeptTabs();
+readUrl();
+loadAuth().catch((error) => console.error(error));
 await loadCatalogue();
