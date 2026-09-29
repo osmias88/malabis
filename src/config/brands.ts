@@ -22,7 +22,7 @@ export const BRANDS: BrandConfig[] = [
     baseUrl: 'https://pk.sapphireonline.pk',
     currency: 'PKR',
     adapter: 'sfcc',
-    collections: ['/collections/ready-to-wear/', '/collections/unstitched/'],
+    collections: ['/collections/ready-to-wear/'],
     // Sapphire's robots.txt blocks ?start=/?sz= paging, so discovery tops up
     // from the product sitemap.
     options: {

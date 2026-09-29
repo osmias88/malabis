@@ -1,4 +1,5 @@
-import type { Product } from './types.js';
+import { deriveStockStatus, priceRange } from './normalize.js';
+import type { Product, ProductVariant } from './types.js';
 
 /**
  * Malabis only carries everyday clothing for women, men, girls and boys:
@@ -43,4 +44,24 @@ export function isCatalogueClothing(product: Pick<Product, 'title' | 'productTyp
   if (EASTERN_GARMENT.test(tagText)) return true;
   if (NON_APPAREL.test(tagText)) return false;
   return WESTERN.test(tagText) || GENERAL_GARMENT.test(tagText);
+}
+
+const UNSTITCHED = /\bun-?stitched\b|\bunstitch\b|\bfabric\b|\bmeters?\b|\bmetres?\b|\byards?\b/i;
+
+function isUnstitchedVariant(variant: ProductVariant): boolean {
+  return variant.size === 'UNSTITCHED' || UNSTITCHED.test(`${variant.title} ${variant.rawSize ?? ''}`);
+}
+
+/**
+ * Malabis only sells ready-made garments. Unstitched fabric options are
+ * removed from products that also come stitched, and a product with no
+ * stitched size left (fabric only, or a single size-less "Default" variant)
+ * is dropped by returning null.
+ */
+export function toStitchedOnly(product: Product): Product | null {
+  const variants = product.variants.filter((variant) => !isUnstitchedVariant(variant));
+  if (!variants.some((variant) => variant.size)) return null;
+  if (variants.length === product.variants.length) return product;
+  const { min, max } = priceRange(variants, product.currency);
+  return { ...product, variants, priceMin: min, priceMax: max, stockStatus: deriveStockStatus(variants) };
 }

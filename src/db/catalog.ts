@@ -2,7 +2,7 @@ import type { Product, ScrapeResult } from '../core/types.js';
 import { createConverter, type Converter } from '../compare/fx.js';
 import { BRANDS } from '../config/brands.js';
 import { supabaseAdmin } from './supabase.js';
-import { isCatalogueClothing } from '../core/dress.js';
+import { isCatalogueClothing, toStitchedOnly } from '../core/dress.js';
 
 export interface CatalogResult extends ScrapeResult {
   fx: {
@@ -45,6 +45,8 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   const products = batches.flat()
     .map(toProduct)
     .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
+    .map(toStitchedOnly)
+    .filter((product): product is Product => product !== null && product.stockStatus !== 'out_of_stock')
     .map((product) => convertProduct(product, converter));
   return {
     products,
