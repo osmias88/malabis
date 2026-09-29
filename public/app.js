@@ -652,7 +652,12 @@ function productAudience(product) {
   const text = [product.title, product.productType, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
   if (/\bboy\b|\bboys\b|cambridge junior/.test(text)) return 'boys';
   if (/\bgirl\b|\bgirls\b|daughter/.test(text)) return 'girls';
-  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) return 'kids';
+  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) {
+    // Cambridge's junior range is boys-only and Ethnic's is girls-only.
+    if (product.brandKey === 'cambridge-pk') return 'boys';
+    if (product.brandKey === 'ethnic-pk') return 'girls';
+    return 'kids';
+  }
   if (product.brandKey === 'cambridge-pk') return 'men';
   if (/\bmen\b|\bmens\b|\bmale\b|\bgents\b|kameez shalwar|jubba|waistcoat|\bpajama\b|mashriq|for him/.test(text)) return 'men';
   // Some stores (e.g. Sapphire) only name the audience in the description:

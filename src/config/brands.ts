@@ -50,7 +50,14 @@ export const BRANDS: BrandConfig[] = [
     baseUrl: 'https://thecambridgeshop.com',
     currency: 'PKR',
     adapter: 'shopify',
-    collections: ['/collections/all'],
+    // Boys' ranges sit deep in /collections/all (2,500+ products), beyond the
+    // per-run limit, so they are walked first.
+    collections: [
+      '/collections/boys-shalwar-kameez',
+      '/collections/cambridge-juniors',
+      '/collections/boys-shalwar-kameez-junior-shalwar-suits-sale',
+      '/collections/all',
+    ],
     options: { hydrateVariants: true, perHostDelayMs: 700 },
   },
   {
