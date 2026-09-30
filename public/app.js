@@ -445,6 +445,15 @@ function productCard(product) {
   </article>`;
 }
 
+// Prices include the brand's delivery charge within Pakistan (added by the server).
+function deliveryNote(product) {
+  if (!product.deliveryFee) return '';
+  const text = product.deliveryFee.amount > 0
+    ? `Includes ${money(product.deliveryFee)} delivery within Pakistan`
+    : 'Includes free delivery within Pakistan';
+  return `<p class="detail-delivery">${text}</p>`;
+}
+
 function discountOf(product) {
   return product.variants.reduce((best, variant) => {
     if (!variant.compareAtPrice?.amount || !variant.price.amount) return best;
@@ -556,6 +565,7 @@ function openDetail(key) {
         <p class="eyebrow">${escape(brand)} · ${escape(sectionOf(product))}</p>
         <h2 id="drawer-title">${escape(displayTitle(product))}</h2>
         <p class="detail-price">${money(product.priceMin)}</p>
+        ${deliveryNote(product)}
         ${formatProductDescription(product.description)}
         <div class="variant-list">
           <h4 class="variant-heading">Sizes & availability</h4>

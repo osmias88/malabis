@@ -1,11 +1,14 @@
-import type { Product, ScrapeResult } from '../core/types.js';
+import type { Money, Product, ScrapeResult } from '../core/types.js';
 import { createConverter, type Converter } from '../compare/fx.js';
 import { BRANDS } from '../config/brands.js';
 import { supabaseAdmin } from './supabase.js';
 import { isCatalogueClothing, toStitchedOnly } from '../core/dress.js';
 
-/** Catalogue products also carry when they were listed, for "newest first". */
-export type CatalogProduct = Product & { listedAt: string };
+/**
+ * Catalogue products also carry when they were listed, for "newest first",
+ * and the brand delivery charge already included in their prices.
+ */
+export type CatalogProduct = Product & { listedAt: string; deliveryFee: Money | null };
 
 export interface CatalogResult extends Omit<ScrapeResult, 'products'> {
   products: CatalogProduct[];
@@ -32,7 +35,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
         tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
         published_at, first_seen_at,
         active,
-        brands!inner(key, name),
+        brands!inner(key, name, delivery_amount, delivery_free_over),
         variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
       `)
       .eq('brands.key', key)
@@ -49,12 +52,13 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
   const converter = await getUsdConverter();
   const rows = batches.flat();
   const importDays = bulkImportDays(rows);
+  const delivery = deliveryByBrand(rows);
   const products = rows
     .map((row) => toProduct(row, importDays))
     .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
     .map((product) => {
       const stitched = toStitchedOnly(product);
-      return stitched ? { ...stitched, listedAt: product.listedAt } : null;
+      return stitched ? withDelivery({ ...stitched, listedAt: product.listedAt, deliveryFee: null }, delivery.get(product.brandKey)) : null;
     })
     .filter((product): product is CatalogProduct => product !== null && product.stockStatus !== 'out_of_stock')
     .map((product) => convertProduct(product, converter));
@@ -115,6 +119,43 @@ function estimateListedAt(row: Record<string, unknown>, importDays: Set<string>)
   return new Date(Date.parse(firstSeen) - (currentSeason ? 60 : 180) * DAY_MS).toISOString();
 }
 
+interface BrandDelivery { amount: number; freeOver: number | null }
+
+function deliveryByBrand(rows: Array<Record<string, unknown>>): Map<string, BrandDelivery> {
+  const rates = new Map<string, BrandDelivery>();
+  for (const row of rows) {
+    const brand = row.brands as { key: string; delivery_amount: number | null; delivery_free_over: number | null };
+    if (brand.delivery_amount === null || rates.has(brand.key)) continue;
+    rates.set(brand.key, { amount: Number(brand.delivery_amount), freeOver: brand.delivery_free_over === null ? null : Number(brand.delivery_free_over) });
+  }
+  return rates;
+}
+
+/**
+ * Adds the brand's delivery charge within Pakistan to every price, so the
+ * shown price is what a piece costs delivered. Pieces priced at or above a
+ * brand's free-delivery threshold get no charge. Compare-at prices get the
+ * same charge so discounts stay accurate.
+ */
+function withDelivery(product: CatalogProduct, delivery: BrandDelivery | undefined): CatalogProduct {
+  if (!delivery || delivery.amount <= 0) return product;
+  const feeFor = (amount: number) => (delivery.freeOver !== null && amount >= delivery.freeOver ? 0 : delivery.amount);
+  const variants = product.variants.map((variant) => ({
+    ...variant,
+    price: { ...variant.price, amount: variant.price.amount + feeFor(variant.price.amount) },
+    compareAtPrice: variant.compareAtPrice
+      ? { ...variant.compareAtPrice, amount: variant.compareAtPrice.amount + feeFor(variant.price.amount) }
+      : null,
+  }));
+  return {
+    ...product,
+    variants,
+    priceMin: { ...product.priceMin, amount: product.priceMin.amount + feeFor(product.priceMin.amount) },
+    priceMax: { ...product.priceMax, amount: product.priceMax.amount + feeFor(product.priceMax.amount) },
+    deliveryFee: { amount: feeFor(product.priceMin.amount), currency: product.currency },
+  };
+}
+
 function toProduct(row: Record<string, unknown>, importDays: Set<string>): CatalogProduct {
   const brand = row.brands as { key: string; name: string };
   const currency = String(row.currency);
@@ -160,6 +201,7 @@ function toProduct(row: Record<string, unknown>, importDays: Set<string>): Catal
     sourceUpdatedAt: row.source_updated_at ? String(row.source_updated_at) : null,
     publishedAt: row.published_at ? String(row.published_at) : null,
     listedAt: estimateListedAt(row, importDays),
+    deliveryFee: null,
   };
 }
 
@@ -190,6 +232,7 @@ function convertProduct(product: CatalogProduct, converter: Converter): CatalogP
         ? converter.convert(variant.compareAtPrice, 'USD')
         : null,
     })),
+    deliveryFee: product.deliveryFee ? converter.convert(product.deliveryFee, 'USD') : null,
   };
 }
 

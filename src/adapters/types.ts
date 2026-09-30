@@ -26,6 +26,8 @@ export interface BrandConfig {
     productUrlPattern?: string;
     /** SFCC sitemap: crawl URLs matching this pattern first (e.g. the current season). */
     preferUrlPattern?: string;
+    /** Page stating domestic delivery charges, for stores without a Shopify checkout quote. */
+    deliveryPageUrl?: string;
     perHostDelayMs?: number;
   };
 }

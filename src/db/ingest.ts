@@ -3,6 +3,7 @@ import { createLogger } from '../core/logger.js';
 import { scrapeBrand, type RunOptions } from '../core/pipeline.js';
 import { StockStatus, type Product, type ScrapeResult } from '../core/types.js';
 import { supabaseAdmin } from './supabase.js';
+import { refreshDeliveryRate } from './delivery.js';
 import { retryTransient } from './retry.js';
 
 const log = createLogger('db');
@@ -22,6 +23,8 @@ export async function ingestBrand(
     mode: IngestMode = 'catalog',
   ): Promise<IngestSummary> {
   const brandId = await upsertBrand(brand);
+  // The daily catalog run also re-checks the brand's delivery charge.
+  if (mode === 'catalog') await refreshDeliveryRate(brand);
   const runId = await startRun(brandId);
 
   try {

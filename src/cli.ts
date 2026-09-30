@@ -182,6 +182,20 @@ program
   });
 
 program
+  .command('delivery')
+  .description('Refresh each brand\'s delivery charge to Lahore (also runs with the daily catalog ingest)')
+  .option('-b, --brand <key>', 'brand key from the registry (default: all brands)')
+  .addOption(logLevelOption)
+  .action(async (options: { brand?: string; logLevel: string }) => {
+    setLogLevel(options.logLevel as 'info');
+    const { refreshDeliveryRate } = await import('./db/delivery.js');
+    const brands = options.brand ? [getBrand(options.brand)] : BRANDS;
+    for (const brand of brands) {
+      if (!(await refreshDeliveryRate(brand))) process.exitCode = 1;
+    }
+  });
+
+program
   .command('serve')
   .description('Start the dashboard for browsing scraped products')
   .option('-p, --port <n>', 'port to listen on', (v) => Number.parseInt(v, 10), envPort())

@@ -50,6 +50,12 @@ create table if not exists brands (
   created_at timestamptz not null default now()
 );
 
+-- Brand's delivery charge within Pakistan (to Lahore), in the brand's
+-- currency minor units, refreshed daily and added to displayed prices.
+alter table brands add column if not exists delivery_amount bigint;
+alter table brands add column if not exists delivery_free_over bigint;
+alter table brands add column if not exists delivery_checked_at timestamptz;
+
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   brand_id uuid not null references brands(id) on delete cascade,

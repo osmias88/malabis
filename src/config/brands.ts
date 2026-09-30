@@ -31,6 +31,7 @@ export const BRANDS: BrandConfig[] = [
       productUrlPattern: '/collections/(ready-to-wear|western-wear|kurtas|kurta-shalwar|waistcoats|west-womens-bottoms|women-tops|jeans)/',
       // Product codes carry the season year, e.g. PRW26CTV108S.
       preferUrlPattern: '/products/[A-Z0-9]*26',
+      deliveryPageUrl: '/pages/faqs.html',
       perHostDelayMs: 700,
     },
   },
