@@ -26,6 +26,10 @@
         <div class="header-actions">
           <span class="location">Shipping across the US</span>
           <button id="account-button" class="account-button" type="button">Sign in</button>
+          <button id="bag-button" class="bag-button" type="button" aria-label="Bag, 0 pieces">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg>
+            <span id="bag-count" class="bag-count" hidden>0</span>
+          </button>
         </div>
       </div>
       <nav id="audience-tabs" class="audience-tabs" aria-label="Shop by">
@@ -104,17 +108,44 @@
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
         <button id="auth-close" class="drawer-close" type="button" aria-label="Close account dialog">×</button>
         <p class="eyebrow">Your Malabis account</p>
-        <h2 id="auth-title">Sign in to save your finds.</h2>
-        <p id="auth-message" class="auth-message">Create an account to keep your cart and checkout details together.</p>
+        <h2 id="auth-title">Sign in</h2>
+        <p id="auth-message" class="auth-message" aria-live="polite"></p>
         <form id="auth-form" class="auth-form">
-          <label><span>Email</span><input id="auth-email" type="email" autocomplete="email" required /></label>
-          <label><span>Password</span><input id="auth-password" type="password" minlength="6" autocomplete="current-password" required /></label>
+          <label id="auth-name-field" hidden><span>Full name</span><input id="auth-name" type="text" autocomplete="name" maxlength="80" /></label>
+          <label id="auth-email-field"><span>Email</span><input id="auth-email" type="email" autocomplete="email" required /></label>
+          <label id="auth-password-field"><span>Password</span><input id="auth-password" type="password" minlength="6" autocomplete="current-password" required /></label>
+          <button id="auth-forgot" class="auth-forgot" type="button">Forgot your password?</button>
           <button id="auth-submit" class="shop-link" type="submit">Sign in</button>
         </form>
         <button id="google-auth" class="google-button" type="button">Continue with Google</button>
-        <button id="auth-mode" class="auth-switch" type="button">Need an account? Register</button>
+        <button id="auth-mode" class="auth-switch" type="button">New to Malabis? Create an account</button>
       </div>
     </div>
+
+    <!-- Bag -->
+    <div id="bag-panel" class="side-panel" hidden>
+      <section class="side-panel-inner" role="dialog" aria-modal="true" aria-labelledby="bag-title">
+        <header class="side-panel-head">
+          <h2 id="bag-title">Your bag</h2>
+          <button class="side-panel-close" type="button" aria-label="Close bag">×</button>
+        </header>
+        <div id="bag-body" class="side-panel-body"></div>
+        <footer id="bag-footer" class="side-panel-foot"></footer>
+      </section>
+    </div>
+
+    <!-- Account -->
+    <div id="account-panel" class="side-panel" hidden>
+      <section class="side-panel-inner" role="dialog" aria-modal="true" aria-labelledby="account-title">
+        <header class="side-panel-head">
+          <h2 id="account-title">Account</h2>
+          <button class="side-panel-close" type="button" aria-label="Close account">×</button>
+        </header>
+        <div id="account-body" class="side-panel-body"></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script type="module" src="/app.js"></script>
   </body>

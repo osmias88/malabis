@@ -31,7 +31,7 @@ export function startServer(port: number, host = '127.0.0.1'): void {
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
 
-    handle(url, response).catch((error: unknown) => {
+    handle(request, url, response).catch((error: unknown) => {
       log.error('request failed', { path: url.pathname, error: String(error) });
       sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) });
     });
@@ -42,13 +42,18 @@ export function startServer(port: number, host = '127.0.0.1'): void {
   });
 }
 
-async function handle(url: URL, response: import('node:http').ServerResponse): Promise<void> {
+async function handle(request: import('node:http').IncomingMessage, url: URL, response: import('node:http').ServerResponse): Promise<void> {
+  if (url.pathname.startsWith('/api/account/')) {
+    const { handleAccount } = await import('./account.js');
+    return handleAccount(request, response, url.pathname, sendJson);
+  }
+
   switch (url.pathname) {
     case '/api/health':
       return sendJson(response, 200, { ok: true });
 
     case '/api/config':
-      return sendJson(response, 200, { liveScraping: liveScrapingEnabled });
+      return sendJson(response, 200, { liveScraping: liveScrapingEnabled, checkoutEnabled: (await import('./account.js')).checkoutEnabled });
 
     case '/api/auth-config':
       return sendJson(response, 200, {

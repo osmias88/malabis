@@ -145,3 +145,89 @@ alter table variants enable row level security;
 alter table scrape_runs enable row level security;
 alter table price_history enable row level security;
 alter table stock_history enable row level security;
+
+-- ---------- Customer accounts: details, saved bag, orders ----------
+
+alter table profiles add column if not exists phone text;
+alter table profiles add column if not exists address_line1 text;
+alter table profiles add column if not exists address_line2 text;
+alter table profiles add column if not exists city text;
+alter table profiles add column if not exists region text;
+alter table profiles add column if not exists postal_code text;
+alter table profiles add column if not exists country text not null default 'US';
+
+-- A signed-in customer's bag, kept across devices. Prices are re-checked at checkout.
+create table if not exists cart_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  product_key text not null,
+  variant_id text not null,
+  quantity integer not null check (quantity between 1 and 10),
+  snapshot jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  unique (user_id, product_key, variant_id)
+);
+
+create table if not exists orders (
+  id uuid primary key default gen_random_uuid(),
+  number bigint generated always as identity (start with 1001) unique,
+  user_id uuid not null references auth.users(id) on delete restrict,
+  status text not null default 'awaiting_payment',
+  currency text not null default 'USD',
+  subtotal bigint not null,
+  shipping_address jsonb not null,
+  contact_email text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  brand_key text not null,
+  product_external_id text not null,
+  variant_external_id text not null,
+  title text not null,
+  brand_name text,
+  size text,
+  image_url text,
+  product_url text,
+  quantity integer not null check (quantity between 1 and 10),
+  unit_price bigint not null,
+  unit_price_source bigint,
+  source_currency text
+);
+
+-- Status history, for customer updates and the warehouse portal.
+create table if not exists order_events (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  status text not null,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_cart_items_user on cart_items(user_id);
+create index if not exists idx_orders_user on orders(user_id, created_at desc);
+create index if not exists idx_order_items_order on order_items(order_id);
+create index if not exists idx_order_events_order on order_events(order_id, created_at);
+
+-- Customers may read only their own rows; all writes go through the server.
+alter table cart_items enable row level security;
+alter table orders enable row level security;
+alter table order_items enable row level security;
+alter table order_events enable row level security;
+
+drop policy if exists cart_items_select_own on cart_items;
+create policy cart_items_select_own on cart_items for select using (auth.uid() = user_id);
+
+drop policy if exists orders_select_own on orders;
+create policy orders_select_own on orders for select using (auth.uid() = user_id);
+
+drop policy if exists order_items_select_own on order_items;
+create policy order_items_select_own on order_items for select
+  using (exists (select 1 from orders where orders.id = order_items.order_id and orders.user_id = auth.uid()));
+
+drop policy if exists order_events_select_own on order_events;
+create policy order_events_select_own on order_events for select
+  using (exists (select 1 from orders where orders.id = order_events.order_id and orders.user_id = auth.uid()));

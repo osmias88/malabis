@@ -24,20 +24,79 @@ const FX_CACHE_MS = 60 * 60 * 1000;
 const FX_RETRY_MS = 5 * 60 * 1000;
 let fxCache: { converter: Converter; expiresAt: number } | undefined;
 
+const PRODUCT_COLUMNS = `
+  external_id, handle, title, description, url, product_type, vendor,
+  tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
+  published_at, first_seen_at,
+  active,
+  brands!inner(key, name, delivery_amount, delivery_free_over),
+  variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
+`;
+
+/**
+ * The shared catalogue rules: clothing only, stitched sizes only, in stock,
+ * with the brand's delivery charge included. Prices stay in the brand's currency.
+ */
+function prepareProducts(rows: Array<Record<string, unknown>>, importDays: Set<string>): CatalogProduct[] {
+  const delivery = deliveryByBrand(rows);
+  return rows
+    .map((row) => toProduct(row, importDays))
+    .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
+    .map((product) => {
+      const stitched = toStitchedOnly(product);
+      return stitched ? withDelivery({ ...stitched, listedAt: product.listedAt, deliveryFee: null }, delivery.get(product.brandKey)) : null;
+    })
+    .filter((product): product is CatalogProduct => product !== null && product.stockStatus !== 'out_of_stock');
+}
+
+export interface PricedProduct {
+  /** As shown on the site, in USD. */
+  usd: CatalogProduct;
+  /** Same product in the brand's own currency (delivery included). */
+  local: CatalogProduct;
+}
+
+/**
+ * Current, sellable versions of specific products ("brandKey:externalId"),
+ * priced exactly as the catalogue shows them. Missing keys are no longer on sale.
+ */
+export async function getProductsByKeys(productKeys: string[]): Promise<Map<string, PricedProduct>> {
+  const byBrand = new Map<string, string[]>();
+  for (const key of productKeys) {
+    const [brandKey, externalId] = splitProductKey(key);
+    if (!brandKey || !externalId) continue;
+    byBrand.set(brandKey, [...(byBrand.get(brandKey) ?? []), externalId]);
+  }
+  const batches = await Promise.all([...byBrand].map(async ([brandKey, ids]) => {
+    const { data, error } = await supabaseAdmin
+      .from('products')
+      .select(PRODUCT_COLUMNS)
+      .eq('brands.key', brandKey)
+      .eq('active', true)
+      .in('external_id', ids);
+    if (error) throw new Error(`Could not load products for ${brandKey}: ${error.message}`);
+    return data ?? [];
+  }));
+  const converter = await getUsdConverter();
+  const priced = new Map<string, PricedProduct>();
+  for (const local of prepareProducts(batches.flat(), new Set())) {
+    priced.set(`${local.brandKey}:${local.externalId}`, { local, usd: convertProduct(local, converter) });
+  }
+  return priced;
+}
+
+export function splitProductKey(key: string): [string, string] {
+  const index = key.indexOf(':');
+  return index < 0 ? ['', ''] : [key.slice(0, index), key.slice(index + 1)];
+}
+
 export async function getCatalog(brandKey: string | undefined, limit: number): Promise<CatalogResult> {
   const brandKeys = brandKey ? [brandKey] : BRANDS.map((brand) => brand.key);
   const perBrandLimit = brandKey ? limit : Math.min(400, Math.ceil(limit / brandKeys.length));
   const batches = await Promise.all(brandKeys.map(async (key) => {
     const { data, error } = await supabaseAdmin
       .from('products')
-      .select(`
-        external_id, handle, title, description, url, product_type, vendor,
-        tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
-        published_at, first_seen_at,
-        active,
-        brands!inner(key, name, delivery_amount, delivery_free_over),
-        variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
-      `)
+      .select(PRODUCT_COLUMNS)
       .eq('brands.key', key)
       .eq('active', true)
       .neq('stock_status', 'out_of_stock')
@@ -51,17 +110,7 @@ export async function getCatalog(brandKey: string | undefined, limit: number): P
 
   const converter = await getUsdConverter();
   const rows = batches.flat();
-  const importDays = bulkImportDays(rows);
-  const delivery = deliveryByBrand(rows);
-  const products = rows
-    .map((row) => toProduct(row, importDays))
-    .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
-    .map((product) => {
-      const stitched = toStitchedOnly(product);
-      return stitched ? withDelivery({ ...stitched, listedAt: product.listedAt, deliveryFee: null }, delivery.get(product.brandKey)) : null;
-    })
-    .filter((product): product is CatalogProduct => product !== null && product.stockStatus !== 'out_of_stock')
-    .map((product) => convertProduct(product, converter));
+  const products = prepareProducts(rows, bulkImportDays(rows)).map((product) => convertProduct(product, converter));
   return {
     products,
     fx: {

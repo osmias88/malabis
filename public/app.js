@@ -1,3 +1,5 @@
+import { addToBag, initShop, refreshBag } from '/shop.js';
+
 const el = (id) => document.getElementById(id);
 const PAGE_SIZE = 48;
 const NEW_DAYS = 14;
@@ -6,9 +8,6 @@ const state = {
   products: [],
   brands: [],
   fx: null,
-  auth: null,
-  authConfig: null,
-  authMode: 'login',
   tab: 'all', // 'all' | 'women' | 'men' | 'girls' | 'boys'
   brand: 'all',
   section: 'all',
@@ -25,9 +24,6 @@ const dom = {
   activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
   rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
   drawer: el('drawer'), drawerBody: el('drawer-body'),
-  account: el('account-button'), authModal: el('auth-modal'), authForm: el('auth-form'),
-  authEmail: el('auth-email'), authPassword: el('auth-password'), authSubmit: el('auth-submit'),
-  googleAuth: el('google-auth'), authMode: el('auth-mode'), authClose: el('auth-close'), authMessage: el('auth-message'),
 };
 
 const TABS = {
@@ -45,99 +41,12 @@ const money = (value) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency: value.currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
 }).format(Math.ceil(value.amount / 100));
 
-/* ---------- Auth ---------- */
-
 async function getJson(url) {
   const response = await fetch(url);
   const body = await response.json();
   if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
   return body;
 }
-
-async function authRequest(path, options = {}) {
-  const response = await fetch(`${state.authConfig.supabaseUrl}/auth/v1${path}`, {
-    ...options,
-    headers: { apikey: state.authConfig.supabaseAnonKey, 'content-type': 'application/json', ...(options.headers ?? {}) },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error_description ?? body.msg ?? body.message ?? 'Authentication failed.');
-  return body;
-}
-
-async function loadAuth() {
-  const config = await getJson('/api/auth-config');
-  if (!config.supabaseUrl || !config.supabaseAnonKey) return;
-  state.authConfig = config;
-  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
-  if (hash.get('access_token')) {
-    state.auth = { access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token') };
-    history.replaceState(null, '', `${location.pathname}${location.search}`);
-    storageSet('malabis.auth', JSON.stringify(state.auth));
-  }
-
-  const stored = storageGet('malabis.auth');
-  if (stored) {
-    try {
-      state.auth = JSON.parse(stored);
-      if (state.auth.access_token) {
-        state.auth.user = await authRequest('/user', { headers: { Authorization: `Bearer ${state.auth.access_token}` } });
-        storageSet('malabis.auth', JSON.stringify(state.auth));
-      }
-    } catch { storageRemove('malabis.auth'); }
-  }
-  renderAccount();
-}
-
-function renderAccount() {
-  if (!state.auth?.user) { dom.account.textContent = 'Sign in'; return; }
-  dom.account.textContent = `Hi, ${state.auth.user.user_metadata?.full_name ?? state.auth.user.email?.split('@')[0] ?? 'there'}`;
-}
-
-function openAuth() {
-  if (state.auth?.user) {
-    state.auth = null;
-    storageRemove('malabis.auth');
-    renderAccount();
-    return;
-  }
-  dom.authModal.hidden = false;
-}
-
-function closeAuth() { dom.authModal.hidden = true; }
-
-function setAuthMode(mode) {
-  state.authMode = mode;
-  const register = mode === 'register';
-  dom.authSubmit.textContent = register ? 'Create account' : 'Sign in';
-  dom.authMode.textContent = register ? 'Already registered? Sign in' : 'Need an account? Register';
-  dom.authMessage.textContent = register ? 'Create an account to keep your cart and checkout details together.' : 'Sign in to save your finds and continue to checkout later.';
-  dom.authPassword.autocomplete = register ? 'new-password' : 'current-password';
-}
-
-async function submitAuth(event) {
-  event.preventDefault();
-  dom.authSubmit.disabled = true;
-  dom.authMessage.textContent = 'Working…';
-  try {
-    const path = state.authMode === 'register' ? '/signup' : '/token?grant_type=password';
-    const result = await authRequest(path, { method: 'POST', body: JSON.stringify({ email: dom.authEmail.value.trim(), password: dom.authPassword.value }) });
-    if (!result.access_token) { dom.authMessage.textContent = 'Check your email to confirm your account, then sign in.'; return; }
-    state.auth = { access_token: result.access_token, refresh_token: result.refresh_token, user: result.user };
-    storageSet('malabis.auth', JSON.stringify(state.auth));
-    renderAccount();
-    closeAuth();
-  } catch (error) { dom.authMessage.textContent = error.message; }
-  finally { dom.authSubmit.disabled = false; }
-}
-
-function signInWithGoogle() {
-  const params = new URLSearchParams({ provider: 'google', redirect_to: location.origin + '/' });
-  location.href = `${state.authConfig.supabaseUrl}/auth/v1/authorize?${params}`;
-}
-
-function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
-function storageSet(key, value) { try { localStorage.setItem(key, value); } catch { /* storage unavailable */ } }
-function storageRemove(key) { try { localStorage.removeItem(key); } catch { /* storage unavailable */ } }
 
 /* ---------- Data ---------- */
 
@@ -534,7 +443,9 @@ function openDetail(key) {
   if (!product) return;
 
   const images = product.images.length ? product.images : [{ url: '', alt: product.title }];
-  const variants = product.variants.map((variant) => `<div class="variant-row"><span>${escape(variant.size ?? variant.title)}</span><span>${variant.available ? 'Available' : 'Sold out'}</span><strong>${money(variant.price)}</strong></div>`).join('');
+  const sizes = product.variants.map((variant) => `
+    <button type="button" class="size-option" data-variant="${escape(variant.externalId)}" ${variant.available ? '' : 'disabled'}
+      aria-pressed="false" aria-label="Size ${escape(variant.size ?? variant.title)}${variant.available ? '' : ', sold out'}">${escape(variant.size ?? variant.title)}</button>`).join('');
   const brand = cleanBrand(product.brandName);
 
   dom.drawerBody.innerHTML = `
@@ -566,26 +477,50 @@ function openDetail(key) {
         <h2 id="drawer-title">${escape(displayTitle(product))}</h2>
         <p class="detail-price">${money(product.priceMin)}</p>
         ${deliveryNote(product)}
-        ${formatProductDescription(product.description)}
-        <div class="variant-list">
-          <h4 class="variant-heading">Sizes & availability</h4>
-          ${variants}
+        <div class="size-picker">
+          <p class="variant-heading">Size <span id="size-choice"></span></p>
+          <div class="size-options" role="group" aria-label="Choose a size">${sizes}</div>
+          <a class="size-guide" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">${escape(brand)} size guide ↗</a>
         </div>
         <div class="detail-actions">
-          <a class="shop-link" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">View on ${escape(brand)} ↗</a>
+          <button type="button" class="shop-link" id="add-to-bag" disabled>Choose a size</button>
           <button type="button" class="size-link" data-more-brand="${escape(product.brandKey)}">More from ${escape(brand)}</button>
         </div>
-        <p class="detail-note">Purchases and official sizing are on the brand’s own product page.</p>
+        ${formatProductDescription(product.description)}
       </div>
     </div>`;
 
   dom.drawer.hidden = false;
   document.body.classList.add('drawer-open');
+  initSizePicker(product);
   dom.drawerBody.querySelector('[data-more-brand]').addEventListener('click', (event) => {
     closeDetail();
     navigate({ brand: event.currentTarget.dataset.moreBrand, tab: state.tab });
   });
   initDetailSlider(images.length);
+}
+
+function initSizePicker(product) {
+  const button = el('add-to-bag');
+  const options = [...dom.drawerBody.querySelectorAll('.size-option')];
+  let chosen = null;
+  const choose = (option) => {
+    chosen = product.variants.find((variant) => variant.externalId === option.dataset.variant);
+    options.forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === option)));
+    el('size-choice').textContent = `· ${chosen.size ?? chosen.title}`;
+    button.disabled = false;
+    button.textContent = `Add to bag · ${money(chosen.price)}`;
+  };
+  options.forEach((option) => option.addEventListener('click', () => choose(option)));
+  const available = options.filter((option) => !option.disabled);
+  if (available.length === 1) choose(available[0]);
+  if (!available.length) button.textContent = 'Sold out';
+  button.addEventListener('click', () => {
+    if (!chosen) return;
+    addToBag(product, chosen);
+    button.textContent = 'Added to bag ✓';
+    window.setTimeout(() => { if (chosen) button.textContent = `Add to bag · ${money(chosen.price)}`; }, 1800);
+  });
 }
 
 function initDetailSlider(totalImages) {
@@ -724,16 +659,10 @@ dom.railClose.addEventListener('click', closeRail);
 dom.railScrim.addEventListener('click', closeRail);
 window.addEventListener('popstate', () => { readUrl(); render(); });
 
-dom.account.addEventListener('click', openAuth);
-dom.authClose.addEventListener('click', closeAuth);
-dom.authModal.addEventListener('click', (event) => { if (event.target === dom.authModal) closeAuth(); });
-dom.authForm.addEventListener('submit', submitAuth);
-dom.authMode.addEventListener('click', () => setAuthMode(state.authMode === 'login' ? 'register' : 'login'));
-dom.googleAuth.addEventListener('click', signInWithGoogle);
 el('drawer-close').addEventListener('click', closeDetail);
 dom.drawer.addEventListener('click', (event) => { if (event.target === dom.drawer) closeDetail(); });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') { closeDetail(); closeAuth(); closeRail(); }
+  if (event.key === 'Escape') { closeDetail(); closeRail(); }
   else if (!dom.drawer.hidden && activeDetailSlider) {
     if (event.key === 'ArrowLeft') activeDetailSlider.prev();
     else if (event.key === 'ArrowRight') activeDetailSlider.next();
@@ -741,5 +670,6 @@ document.addEventListener('keydown', (event) => {
 });
 
 readUrl();
-loadAuth().catch((error) => console.error(error));
+initShop({ getProducts: () => state.products, money, escape, displayTitle, cleanBrand, productKey }).catch((error) => console.error(error));
 await loadCatalogue();
+refreshBag();
