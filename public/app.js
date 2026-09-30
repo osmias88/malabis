@@ -21,7 +21,7 @@ const state = {
 const dom = {
   search: el('search'), size: el('size'), sort: el('sort'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), showMore: el('show-more'),
-  home: el('home'), brandStrip: el('brand-strip'), brandRows: el('brand-rows'),
+  home: el('home'), brandRows: el('brand-rows'),
   featureTiles: el('feature-tiles'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
   activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
   rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
@@ -42,9 +42,10 @@ const TABS = {
 const FEATURES = ['women', 'men', 'girls', 'boys'];
 const BRAND_ROW_SIZE = 4;
 
+// Whole dollars, rounded up so a price is never shown lower than it is.
 const money = (value) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: value.currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
-}).format(value.amount / 100);
+  style: 'currency', currency: value.currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
+}).format(Math.ceil(value.amount / 100));
 
 /* ---------- Auth ---------- */
 
@@ -345,17 +346,6 @@ function renderBrandRail() {
 
 function renderHome() {
   const byNewest = sortProducts(state.products.filter((product) => product.images.length));
-
-  // Brand strip: each brand's newest piece as its cover.
-  dom.brandStrip.innerHTML = state.brands.map((brand) => {
-    const items = byNewest.filter((product) => product.brandKey === brand.key);
-    if (!items.length) return '';
-    return `<button type="button" class="brand-card" data-brand="${escape(brand.key)}">
-      <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
-      <span class="brand-card-name">${escape(cleanBrand(brand.name))}</span>
-      <span class="brand-card-count">${state.products.filter((product) => product.brandKey === brand.key).length} pieces</span>
-    </button>`;
-  }).join('');
 
   // One row per brand: its newest pieces and a link to the rest.
   dom.brandRows.innerHTML = state.brands.map((brand) => {
