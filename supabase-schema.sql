@@ -135,3 +135,13 @@ create index if not exists idx_products_active_brand on products(brand_id, activ
 create index if not exists idx_variants_product_id on variants(product_id);
 create index if not exists idx_price_history_product_id on price_history(product_id, captured_at desc);
 create index if not exists idx_stock_history_product_id on stock_history(product_id, captured_at desc);
+
+-- Catalogue tables are only read and written by the server and scraper with
+-- the service-role key, which bypasses RLS. Enabling RLS with no policies
+-- blocks the public anon key (shipped to browsers for sign-in) from them.
+alter table brands enable row level security;
+alter table products enable row level security;
+alter table variants enable row level security;
+alter table scrape_runs enable row level security;
+alter table price_history enable row level security;
+alter table stock_history enable row level security;
