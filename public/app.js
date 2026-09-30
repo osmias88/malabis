@@ -21,7 +21,7 @@ const state = {
 const dom = {
   search: el('search'), size: el('size'), sort: el('sort'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), showMore: el('show-more'),
-  home: el('home'), brandRows: el('brand-rows'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
+  home: el('home'), listing: el('listing'), brandStrip: el('brand-strip'), brandRows: el('brand-rows'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
   activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
   rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
   drawer: el('drawer'), drawerBody: el('drawer-body'),
@@ -304,6 +304,8 @@ function render() {
   renderBrandRail();
   const home = isHomeView();
   dom.home.hidden = !home;
+  // The home page is the brand rows; the full grid is for tabs, brands and search.
+  dom.listing.hidden = home;
   if (home) renderHome();
   renderListing();
 }
@@ -345,12 +347,24 @@ function renderBrandRail() {
 function renderHome() {
   const byNewest = sortProducts(state.products.filter((product) => product.images.length));
 
+  // Brand strip: each brand's newest piece as its cover; tapping one
+  // scrolls to that brand's row below.
+  dom.brandStrip.innerHTML = state.brands.map((brand) => {
+    const items = byNewest.filter((product) => product.brandKey === brand.key);
+    if (!items.length) return '';
+    return `<button type="button" class="brand-card" data-jump="${escape(brand.key)}">
+      <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
+      <span class="brand-card-name">${escape(cleanBrand(brand.name))}</span>
+      <span class="brand-card-count">${items.length} pieces</span>
+    </button>`;
+  }).join('');
+
   // One row per brand: its newest pieces and a link to the rest.
   dom.brandRows.innerHTML = state.brands.map((brand) => {
     const items = byNewest.filter((product) => product.brandKey === brand.key);
     if (!items.length) return '';
     const name = cleanBrand(brand.name);
-    return `<section class="home-block brand-row" aria-label="${escape(name)}">
+    return `<section class="home-block brand-row" id="row-${escape(brand.key)}" aria-label="${escape(name)}">
       <div class="block-head">
         <h2>${escape(name)}</h2>
         <button type="button" class="block-link" data-brand="${escape(brand.key)}">Shop all ${items.length} →</button>
@@ -659,6 +673,12 @@ dom.sectionChips.addEventListener('click', (event) => {
 dom.home.addEventListener('click', (event) => {
   const tile = event.target.closest('[data-key]');
   if (tile) { openDetail(tile.dataset.key); return; }
+  const jump = event.target.closest('[data-jump]');
+  if (jump) {
+    const row = document.getElementById(`row-${jump.dataset.jump}`);
+    if (row) window.scrollTo({ top: row.getBoundingClientRect().top + window.scrollY - headerHeight() - 12, behavior: 'smooth' });
+    return;
+  }
   const brand = event.target.closest('[data-brand]');
   if (brand) { navigate({ brand: brand.dataset.brand }); return; }
 });

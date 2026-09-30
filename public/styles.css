@@ -192,6 +192,23 @@ img { max-width: 100%; }
 .block-head h2 { margin: 0; font: 500 clamp(24px, 2.4vw, 32px)/1.1 var(--font-display); letter-spacing: -.01em; }
 .block-link { flex: none; padding: 0; border: 0; background: transparent; cursor: pointer; color: var(--forest); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 .block-link:hover { color: var(--ink); }
+.brand-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.brand-card {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ink);
+  cursor: pointer;
+  color: var(--white);
+  text-align: left;
+}
+.brand-card img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; opacity: .78; transition: opacity .3s ease, transform .6s ease; }
+.brand-card:hover img { opacity: .9; transform: scale(1.04); }
+.brand-card-name { position: absolute; left: 14px; right: 14px; bottom: 34px; font: 500 24px/1 var(--font-display); text-shadow: 0 1px 12px rgba(0, 0, 0, .4); }
+.brand-card-count { position: absolute; left: 14px; bottom: 14px; font-size: 12px; font-weight: 600; opacity: .9; }
 .brand-rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 56px; }
 .brand-row + .brand-row { padding-top: 40px; border-top: 1px solid var(--line); }
 .block-note { margin: 0; color: var(--muted); font-size: 13px; }
@@ -662,6 +679,8 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
   .brand-rail { top: 0; }
 
   .main { padding: 20px 16px 56px; }
+  .brand-strip { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 40%; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scroll-padding-inline: 16px; scrollbar-width: none; }
+  .brand-card-name { font-size: 19px; }
   .home { gap: 40px; margin-bottom: 40px; }
 
 
