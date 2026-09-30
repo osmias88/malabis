@@ -21,8 +21,7 @@ const state = {
 const dom = {
   search: el('search'), size: el('size'), sort: el('sort'), count: el('result-count'),
   updated: el('updated'), status: el('status'), grid: el('grid'), showMore: el('show-more'),
-  home: el('home'), brandRows: el('brand-rows'),
-  featureTiles: el('feature-tiles'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
+  home: el('home'), brandRows: el('brand-rows'), listingEyebrow: el('listing-eyebrow'), listingTitle: el('listing-title'),
   activeChips: el('active-chips'), sectionChips: el('section-chips'), tabs: el('audience-tabs'),
   rail: el('brand-rail'), brandList: el('brand-list'), railOpen: el('rail-open'), railClose: el('rail-close'), railScrim: el('rail-scrim'),
   drawer: el('drawer'), drawerBody: el('drawer-body'),
@@ -39,7 +38,6 @@ const TABS = {
   boys: { label: 'Boys', title: 'Boys' },
 };
 
-const FEATURES = ['women', 'men', 'girls', 'boys'];
 const BRAND_ROW_SIZE = 4;
 
 // Whole dollars, rounded up so a price is never shown lower than it is.
@@ -361,14 +359,6 @@ function renderHome() {
     </section>`;
   }).join('');
 
-  dom.featureTiles.innerHTML = FEATURES.map((tab) => {
-    const items = byNewest.filter((product) => inTab(product, tab));
-    if (!items.length) return '';
-    return `<button type="button" class="feature-tile" data-tab="${tab}">
-      <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
-      <span class="feature-copy"><strong>${escape(TABS[tab].label)}</strong><span>${items.length} pieces · Shop now →</span></span>
-    </button>`;
-  }).join('');
 }
 
 function renderListing() {
@@ -671,8 +661,6 @@ dom.home.addEventListener('click', (event) => {
   if (tile) { openDetail(tile.dataset.key); return; }
   const brand = event.target.closest('[data-brand]');
   if (brand) { navigate({ brand: brand.dataset.brand }); return; }
-  const feature = event.target.closest('.feature-tile');
-  if (feature) navigate({ tab: feature.dataset.tab });
 });
 
 dom.grid.addEventListener('click', (event) => {
