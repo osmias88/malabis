@@ -231,3 +231,8 @@ create policy order_items_select_own on order_items for select
 drop policy if exists order_events_select_own on order_events;
 create policy order_events_select_own on order_events for select
   using (exists (select 1 from orders where orders.id = order_events.order_id and orders.user_id = auth.uid()));
+
+-- Brand size charts, normalised: [{ title, rows: [[header...], [measurement, ...]], image }].
+-- Re-checked weekly by the daily catalog ingest (and `npm run sizecharts`).
+alter table products add column if not exists size_chart jsonb;
+alter table products add column if not exists size_chart_checked_at timestamptz;

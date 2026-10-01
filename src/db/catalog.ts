@@ -2,13 +2,14 @@ import type { Money, Product, ScrapeResult } from '../core/types.js';
 import { createConverter, type Converter } from '../compare/fx.js';
 import { BRANDS } from '../config/brands.js';
 import { supabaseAdmin } from './supabase.js';
+import type { SizeChart } from '../sizing/charts.js';
 import { isCatalogueClothing, toStitchedOnly } from '../core/dress.js';
 
 /**
  * Catalogue products also carry when they were listed, for "newest first",
  * and the brand delivery charge already included in their prices.
  */
-export type CatalogProduct = Product & { listedAt: string; deliveryFee: Money | null };
+export type CatalogProduct = Product & { listedAt: string; deliveryFee: Money | null; sizeCharts: SizeChart[] | null };
 
 export interface CatalogResult extends Omit<ScrapeResult, 'products'> {
   products: CatalogProduct[];
@@ -27,7 +28,7 @@ let fxCache: { converter: Converter; expiresAt: number } | undefined;
 const PRODUCT_COLUMNS = `
   external_id, handle, title, description, url, product_type, vendor,
   tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
-  published_at, first_seen_at,
+  published_at, first_seen_at, size_chart,
   active,
   brands!inner(key, name, delivery_amount, delivery_free_over),
   variants(external_id, sku, title, size, raw_size, color, price, compare_at_price, available, inventory_quantity, position)
@@ -44,7 +45,7 @@ function prepareProducts(rows: Array<Record<string, unknown>>, importDays: Set<s
     .filter((product) => !isUnstitched(product) && !isBrief(product) && !isFragrance(product) && isCatalogueClothing(product))
     .map((product) => {
       const stitched = toStitchedOnly(product);
-      return stitched ? withDelivery({ ...stitched, listedAt: product.listedAt, deliveryFee: null }, delivery.get(product.brandKey)) : null;
+      return stitched ? withDelivery({ ...stitched, listedAt: product.listedAt, deliveryFee: null, sizeCharts: product.sizeCharts }, delivery.get(product.brandKey)) : null;
     })
     .filter((product): product is CatalogProduct => product !== null && product.stockStatus !== 'out_of_stock');
 }
@@ -251,6 +252,7 @@ function toProduct(row: Record<string, unknown>, importDays: Set<string>): Catal
     publishedAt: row.published_at ? String(row.published_at) : null,
     listedAt: estimateListedAt(row, importDays),
     deliveryFee: null,
+    sizeCharts: Array.isArray(row.size_chart) ? (row.size_chart as SizeChart[]) : null,
   };
 }
 

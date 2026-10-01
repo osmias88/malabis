@@ -196,6 +196,22 @@ program
   });
 
 program
+  .command('sizecharts')
+  .description('Fetch brand size charts for new products and ones not checked in a week (also runs with the daily catalog ingest)')
+  .option('-b, --brand <key>', 'brand key from the registry (default: all brands)')
+  .option('--force', 're-check every active product, not just new or stale ones', false)
+  .addOption(logLevelOption)
+  .action(async (options: { brand?: string; force: boolean; logLevel: string }) => {
+    setLogLevel(options.logLevel as 'info');
+    const { refreshSizeCharts } = await import('./db/sizeCharts.js');
+    const brands = options.brand ? [getBrand(options.brand)] : BRANDS;
+    for (const brand of brands) {
+      const summary = await refreshSizeCharts(brand, { force: options.force });
+      if (summary.failed) process.exitCode = 1;
+    }
+  });
+
+program
   .command('serve')
   .description('Start the dashboard for browsing scraped products')
   .option('-p, --port <n>', 'port to listen on', (v) => Number.parseInt(v, 10), envPort())

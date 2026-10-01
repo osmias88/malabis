@@ -4,6 +4,7 @@ import { scrapeBrand, type RunOptions } from '../core/pipeline.js';
 import { StockStatus, type Product, type ScrapeResult } from '../core/types.js';
 import { supabaseAdmin } from './supabase.js';
 import { refreshDeliveryRate } from './delivery.js';
+import { refreshSizeCharts } from './sizeCharts.js';
 import { retryTransient } from './retry.js';
 
 const log = createLogger('db');
@@ -33,6 +34,10 @@ export async function ingestBrand(
       if (mode === 'stock') await persistStock(brandId, result.products);
       else await persistProducts(brandId, result.products);
     await deactivateMissingProducts(brandId, runStartedAt);
+    // The daily catalog run also picks up size charts for new and stale products.
+    if (mode === 'catalog') {
+      await refreshSizeCharts(brand).catch((error) => log.warn('size chart refresh failed', { brand: brand.key, error: String(error) }));
+    }
     await finishRun(runId, result);
 
     return {

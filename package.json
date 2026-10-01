@@ -21,7 +21,8 @@
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/cli.js serve",
-    "delivery": "tsx src/cli.ts delivery"
+    "delivery": "tsx src/cli.ts delivery",
+    "sizecharts": "tsx src/cli.ts sizecharts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

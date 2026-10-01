@@ -760,6 +760,20 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
 .size-option[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--white); }
 .size-option:disabled { color: var(--muted); text-decoration: line-through; cursor: not-allowed; background: var(--soft); }
 .size-guide { display: inline-block; margin-top: 10px; color: var(--forest); font-size: 13px; font-weight: 600; }
+.size-guide-panel { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.size-guide-panel summary { padding: 11px 14px; cursor: pointer; font-weight: 600; font-size: 14px; list-style-position: inside; }
+.size-guide-panel[open] summary { border-bottom: 1px solid var(--line); }
+.size-chart { margin: 0; padding: 12px 14px 0; }
+.size-chart figcaption { margin-bottom: 6px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.size-chart-scroll { overflow-x: auto; }
+.size-chart table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.size-chart th, .size-chart td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.size-chart thead th { font-weight: 600; background: var(--soft); }
+.size-chart tbody th { text-align: left; font-weight: 500; color: var(--muted); }
+.size-chart .is-chosen { background: #e7efe9; color: var(--forest); font-weight: 600; }
+.size-chart img { display: block; width: 100%; height: auto; margin-top: 10px; border-radius: 6px; }
+.size-chart-note { margin: 10px 14px 12px; color: var(--muted); font-size: 12px; }
+.size-chart-note .size-guide { margin: 0; font-size: 12px; }
 .detail-actions { margin: 0 0 28px; }
 .shop-link:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 

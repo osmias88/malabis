@@ -480,7 +480,7 @@ function openDetail(key) {
         <div class="size-picker">
           <p class="variant-heading">Size <span id="size-choice"></span></p>
           <div class="size-options" role="group" aria-label="Choose a size">${sizes}</div>
-          <a class="size-guide" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">${escape(brand)} size guide ↗</a>
+          ${sizeGuide(product, brand)}
         </div>
         <div class="detail-actions">
           <button type="button" class="shop-link" id="add-to-bag" disabled>Choose a size</button>
@@ -500,6 +500,39 @@ function openDetail(key) {
   initDetailSlider(images.length);
 }
 
+// The brand's own size chart, shown under the sizes; a link to the brand when there is none.
+function sizeGuide(product, brand) {
+  const link = `<a class="size-guide" href="${escape(product.url)}" target="_blank" rel="noreferrer noopener">${escape(brand)} size guide ↗</a>`;
+  const charts = (product.sizeCharts ?? []).filter((chart) => chart.rows?.length || chart.image);
+  if (!charts.length) return link;
+  const tables = charts.map((chart) => `
+    <figure class="size-chart">
+      ${chart.title && charts.length > 1 ? `<figcaption>${escape(titleCase(chart.title))}</figcaption>` : ''}
+      ${chart.rows?.length ? `<div class="size-chart-scroll"><table>
+        <thead><tr>${chart.rows[0].map((cell, index) => `<th scope="col" data-col="${index}">${escape(cell)}</th>`).join('')}</tr></thead>
+        <tbody>${chart.rows.slice(1).map((row) => `<tr>${row.map((cell, index) => index === 0
+          ? `<th scope="row">${escape(titleCase(cell))}</th>`
+          : `<td data-col="${index}">${escape(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>` : ''}
+      ${chart.image ? `<img src="${escape(chart.image)}" alt="${escape(brand)} size chart" loading="lazy" />` : ''}
+    </figure>`).join('');
+  return `<details class="size-guide-panel">
+      <summary>Size guide</summary>
+      ${tables}
+      <p class="size-chart-note">Garment measurements as published by ${escape(brand)}; allow a little tolerance. ${link}</p>
+    </details>`;
+}
+
+// Highlights the chosen size's column, matching "2-3 YRS" to "2-3Y", "Medium" to "M", etc.
+function highlightSizeColumn(size) {
+  const key = (value) => String(value).toUpperCase().replace(/YEARS?|YRS?/g, 'Y').replace(/[^A-Z0-9]/g, '')
+    .replace(/^(EXTRA)?SMALL$/, 'S').replace(/^MEDIUM$/, 'M').replace(/^LARGE$/, 'L');
+  for (const table of dom.drawerBody.querySelectorAll('.size-chart table')) {
+    const header = [...table.querySelectorAll('thead th[data-col]')].find((cell) => cell.dataset.col !== '0' && key(cell.textContent) === key(size));
+    for (const cell of table.querySelectorAll('[data-col]')) cell.classList.toggle('is-chosen', Boolean(header) && cell.dataset.col === header.dataset.col);
+  }
+}
+
 function initSizePicker(product) {
   const button = el('add-to-bag');
   const options = [...dom.drawerBody.querySelectorAll('.size-option')];
@@ -508,6 +541,7 @@ function initSizePicker(product) {
     chosen = product.variants.find((variant) => variant.externalId === option.dataset.variant);
     options.forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === option)));
     el('size-choice').textContent = `· ${chosen.size ?? chosen.title}`;
+    highlightSizeColumn(chosen.size ?? chosen.title);
     button.disabled = false;
     button.textContent = `Add to bag · ${money(chosen.price)}`;
   };
