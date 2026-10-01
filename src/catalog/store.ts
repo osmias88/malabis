@@ -47,6 +47,16 @@ export function colorOf(variant: { color: string | null; title: string; size: st
   const rest = parts.filter((part) => !sizes.includes(part.toLowerCase()));
   return rest.length && rest.length < parts.length ? rest.join(' / ') : null;
 }
+// Older Sapphire records mixed other option groups in with sizes: fit
+// ("REGULAR FIT") and jeans leg length ("INSEAM-030"). They are not sizes, so
+// they are dropped when the piece still has real sizes. (New scrapes read sizes only.)
+const NOT_A_SIZE = /^(regular|slim|relaxed|classic|straight|skinny)\s+fit$|^inseam-/i;
+
+function withRealSizes(product: CatalogProduct): CatalogProduct {
+  const variants = product.variants.filter((variant) => !NOT_A_SIZE.test((variant.size ?? variant.title).trim()));
+  return variants.length && variants.length < product.variants.length ? { ...product, variants } : product;
+}
+
 const isUsefulSize = (size: string | null): size is string => Boolean(size) && size !== 'Default' && !/(?:\bML\b|METERS?|\bPIECE\b)/i.test(size ?? '');
 
 function sizeSort(left: string, right: string): number {
@@ -60,7 +70,7 @@ function sizeSort(left: string, right: string): number {
 async function load(): Promise<Snapshot> {
   const started = Date.now();
   const { products, fx } = await loadAllCatalogProducts();
-  const entries = products.map((product): Entry => {
+  const entries = products.map(withRealSizes).map((product): Entry => {
     const title = displayTitle(product);
     const garment = garmentOf(product);
     return {

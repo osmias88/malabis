@@ -394,7 +394,7 @@ function formatProductDescription(raw) {
     const texts = section.items;
     const pairable = texts.length >= 4 && texts.length % 2 === 0
       && texts.every((item) => item.type === 'text' && item.text.length <= 40)
-      && texts.filter((_, index) => index % 2 === 0).every((item) => item.text.split(/s+/).length <= 3);
+      && texts.filter((_, index) => index % 2 === 0).every((item) => item.text.split(/\s+/).length <= 3);
     if (!pairable) continue;
     const seen = new Set();
     section.items = [];

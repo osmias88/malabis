@@ -35,6 +35,12 @@ export function isCatalogueClothing(product: Pick<Product, 'title' | 'productTyp
 
   if (!FESTIVE_BRANDS.has(product.brandKey) && FESTIVE.test(withTags)) return false;
 
+  // A piece named only as a dupatta/shawl/stole is an accessory, even when its
+  // URL sits in a "ready-to-wear" collection.
+  // ("Stitched" is a garment word elsewhere, but "Stitched Dyed Dupatta" is still just a dupatta.)
+  const title = product.title.toLowerCase().replace(/[-_/]+/g, ' ').replace(/\bstitched\b/g, ' ');
+  if (DRAPE_ONLY.test(title) && !EASTERN_GARMENT.test(title) && !GENERAL_GARMENT.test(title) && !WESTERN.test(title)) return false;
+
   // Title/type/URL decide first; tags are only a fallback because stores tag
   // products with cross-sell words ("bags", "heels") that aren't about the item.
   if (EASTERN_GARMENT.test(text)) return true;

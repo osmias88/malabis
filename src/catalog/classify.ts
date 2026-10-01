@@ -8,7 +8,31 @@ export const TABS: Tab[] = ['all', 'women', 'men', 'girls', 'boys'];
 
 type Classifiable = Pick<Product, 'brandKey' | 'title' | 'productType' | 'url' | 'tags' | 'description' | 'handle'>;
 
+// What each brand actually sells (from their own store menus). A piece
+// matched to an audience the brand doesn't sell is moved to the nearest one
+// it does: e.g. Ethnic's "waistcoats" are women's, Sana Safinaz kids is girls' wear.
+const BRAND_AUDIENCES: Record<string, Audience[]> = {
+  'ethnic-pk': ['women', 'girls'],
+  'sana-safinaz-pk': ['women', 'girls'],
+  'afrozeh-pk': ['women'],
+  'cambridge-pk': ['men', 'boys'],
+};
+const NEAREST: Record<Audience, Audience[]> = {
+  women: ['men', 'girls'],
+  men: ['women', 'boys'],
+  girls: ['boys', 'women'],
+  boys: ['girls', 'men'],
+  kids: ['girls', 'boys', 'women'],
+};
+
 export function audienceOf(product: Classifiable): Audience {
+  const guess = guessAudience(product);
+  const sold = BRAND_AUDIENCES[product.brandKey];
+  if (!sold || sold.includes(guess)) return guess;
+  return NEAREST[guess].find((audience) => sold.includes(audience)) ?? sold[0]!;
+}
+
+function guessAudience(product: Classifiable): Audience {
   const text = [product.title, product.productType, product.url, ...(product.tags ?? [])].filter(Boolean).join(' ').toLowerCase();
   if (/\bboy\b|\bboys\b|cambridge junior/.test(text)) return 'boys';
   if (/\bgirl\b|\bgirls\b|daughter/.test(text)) return 'girls';
@@ -71,6 +95,12 @@ export function titleCase(value: string): string {
 
 /** Store titles are often SKU codes in capitals ("DRESS (E2264/301/422)"). */
 export function displayTitle(product: Classifiable): string {
+  // Some stores name pieces only by code ("Ss24gwsp118"); fall back to a description.
+  if (/^[a-z]{0,6}\d[a-z0-9-]*$/i.test(product.title.trim())) {
+    const audience = audienceOf(product);
+    const kind = product.productType ? titleCase(product.productType) : 'Outfit';
+    return audience === 'girls' || audience === 'boys' || audience === 'kids' ? `Kids' ${kind}` : kind;
+  }
   let title = product.title.replace(/\s*\((?=[^)]*\d)[A-Z0-9/ -]+\)\s*$/i, '').replace(/\s+/g, ' ').trim();
   if (title === title.toUpperCase()) title = titleCase(title);
   if (product.brandKey === 'ethnic-pk' && product.productType && title.split(' ').length <= 2) title = `${titleCase(product.productType)} ${title}`;

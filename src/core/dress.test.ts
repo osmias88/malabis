@@ -40,3 +40,15 @@ test('isCatalogueClothing keeps Afrozeh festive and bridal wear only', () => {
   assert.equal(isCatalogueClothing({ ...festive, brandKey: 'afrozeh-pk' }), true);
   assert.equal(isCatalogueClothing({ ...festive, brandKey: 'sapphire-pk' }), false);
 });
+
+test('isCatalogueClothing drops standalone dupattas but keeps suits with one', () => {
+  const base = { productType: null, url: 'https://pk.sapphireonline.pk/collections/ready-to-wear/products/X.html', tags: [], brandKey: 'sapphire-pk' };
+  assert.equal(isCatalogueClothing({ ...base, title: 'Printed Net Dupatta' }), false);
+  assert.equal(isCatalogueClothing({ ...base, title: 'Embroidered Lawn Shirt + Dupatta' }), true);
+});
+
+test('isCatalogueClothing treats "Stitched ... Dupatta" as an accessory', () => {
+  const base = { productType: null, url: 'https://sanasafinaz.com/products/x', tags: [], brandKey: 'sana-safinaz-pk' };
+  assert.equal(isCatalogueClothing({ ...base, title: 'Stitched Dyed Yarn Dupatta' }), false);
+  assert.equal(isCatalogueClothing({ ...base, title: 'Stitched Printed Lawn Shirt + Dupatta' }), true);
+});

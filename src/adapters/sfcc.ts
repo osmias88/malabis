@@ -330,7 +330,13 @@ function extractSizeVariants(
   const { price, listPrice, color, soldOut } = args;
   const byValue = new Map<string, SizeVariant>();
 
-  $('input.options-select[data-attr-value]').each((_, element) => {
+  // Pages can carry other option groups beside size (Sapphire: fit as
+  // "itemType-options", jeans length as an inseam group). Only the size group
+  // gives sizes; pages without a named size group fall back to every option.
+  const sizeInputs = $('input.options-select[data-attr-value][name="size-options"]');
+  const inputs = sizeInputs.length ? sizeInputs : $('input.options-select[data-attr-value]');
+
+  inputs.each((_, element) => {
     const $input = $(element);
     const value = $input.attr('data-attr-value')?.trim();
     if (!value || byValue.has(value)) return;

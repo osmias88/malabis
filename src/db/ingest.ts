@@ -111,10 +111,17 @@ async function persistProducts(brandId: string, products: Product[]): Promise<vo
     return !isUnchanged;
   });
 
-  for (const batch of chunk(unchanged, 100)) {
-    await Promise.all(batch.map(({ id, scrapedAt }) =>
-      supabaseAdmin.from('products').update({ active: true, last_seen_at: scrapedAt }).eq('id', id),
-    ));
+  // One checked request per batch: firing an update per product failed
+  // silently under load, and those products were then marked missing.
+  for (const batch of chunk(unchanged, 200)) {
+    const seenAt = batch.reduce((latest, { scrapedAt }) => (scrapedAt > latest ? scrapedAt : latest), batch[0]!.scrapedAt);
+    await retryDatabase(async () => {
+      const { error } = await supabaseAdmin
+        .from('products')
+        .update({ active: true, last_seen_at: seenAt })
+        .in('id', batch.map(({ id }) => id));
+      if (error) throw databaseError('Could not mark unchanged products as seen', error);
+    });
   }
 
   for (const batch of chunk(changed, 50)) {
@@ -159,32 +166,34 @@ async function persistProducts(brandId: string, products: Product[]): Promise<vo
 }
 
 async function persistStock(brandId: string, products: Product[]): Promise<void> {
-  const { data: storedProducts, error } = await supabaseAdmin
+  const storedProducts = await selectAll((from, to) => supabaseAdmin
     .from('products')
     .select('id, handle, variants(id, external_id)')
-    .eq('brand_id', brandId);
-  if (error) throw new Error(`Could not load stock targets: ${error.message}`);
+    .eq('brand_id', brandId)
+    .order('id')
+    .range(from, to)).catch((error) => { throw new Error(`Could not load stock targets: ${String(error)}`); });
 
-  const byHandle = new Map((storedProducts ?? []).map((row) => [
+  const byHandle = new Map(storedProducts.map((row) => [
     String(row.handle),
     {
       id: String(row.id),
-      variants: new Map((row.variants ?? []).map((variant: { id: string; external_id: string }) => [
+      variants: new Map(((row.variants ?? []) as Array<{ id: string; external_id: string }>).map((variant) => [
         String(variant.external_id), String(variant.id),
       ])),
     },
   ]));
+
+  // Group the writes so each is one checked request per status, not one per product or size.
+  const productsByStatus = new Map<string, string[]>();
+  const variantsByAvailability = new Map<boolean, string[]>();
   const stockHistory: Array<Record<string, unknown>> = [];
+  let seenAt = '';
 
   for (const product of products) {
     const stored = byHandle.get(product.handle);
     if (!stored) continue;
-    await supabaseAdmin.from('products').update({
-      stock_status: product.stockStatus,
-      scraped_at: product.scrapedAt,
-      last_seen_at: product.scrapedAt,
-      active: true,
-    }).eq('id', stored.id);
+    if (product.scrapedAt > seenAt) seenAt = product.scrapedAt;
+    productsByStatus.set(product.stockStatus, [...(productsByStatus.get(product.stockStatus) ?? []), stored.id]);
     stockHistory.push({
       product_id: stored.id,
       available: product.stockStatus === StockStatus.Unknown ? null : product.stockStatus !== StockStatus.OutOfStock,
@@ -194,10 +203,7 @@ async function persistStock(brandId: string, products: Product[]): Promise<void>
     for (const variant of product.variants) {
       const variantId = stored.variants.get(variant.externalId);
       if (!variantId) continue;
-      await supabaseAdmin.from('variants').update({
-        available: variant.available,
-        inventory_quantity: variant.inventoryQuantity,
-      }).eq('id', variantId);
+      variantsByAvailability.set(variant.available, [...(variantsByAvailability.get(variant.available) ?? []), variantId]);
       stockHistory.push({
         product_id: stored.id,
         variant_id: variantId,
@@ -208,7 +214,27 @@ async function persistStock(brandId: string, products: Product[]): Promise<void>
     }
   }
 
-  for (const batch of chunk(stockHistory, 100)) {
+  for (const [stockStatus, ids] of productsByStatus) {
+    for (const batch of chunk(ids, 200)) {
+      await retryDatabase(async () => {
+        const { error } = await supabaseAdmin.from('products')
+          .update({ stock_status: stockStatus, scraped_at: seenAt, last_seen_at: seenAt, active: true })
+          .in('id', batch);
+        if (error) throw databaseError('Could not update product stock', error);
+      });
+    }
+  }
+
+  for (const [available, ids] of variantsByAvailability) {
+    for (const batch of chunk(ids, 200)) {
+      await retryDatabase(async () => {
+        const { error } = await supabaseAdmin.from('variants').update({ available }).in('id', batch);
+        if (error) throw databaseError('Could not update size stock', error);
+      });
+    }
+  }
+
+  for (const batch of chunk(stockHistory, 500)) {
     const { error: historyError } = await supabaseAdmin.from('stock_history').insert(batch);
     if (historyError) throw new Error(`Could not record stock batch: ${historyError.message}`);
   }
@@ -294,7 +320,24 @@ function retryDatabase<T>(operation: () => Promise<T>): Promise<T> {
   });
 }
 
+/** Above this share of a brand's active products, a run is assumed broken and nothing is hidden. */
+const MAX_DEACTIVATE_SHARE = 0.5;
+
 async function deactivateMissingProducts(brandId: string, runStartedAt: string): Promise<void> {
+  const count = async (missingOnly: boolean) => {
+    let query = supabaseAdmin.from('products').select('id', { count: 'exact', head: true })
+      .eq('brand_id', brandId).eq('active', true);
+    if (missingOnly) query = query.not('last_seen_at', 'is', null).lt('last_seen_at', runStartedAt);
+    const { count: total, error } = await query;
+    if (error) throw new Error(`Could not count products: ${error.message}`);
+    return total ?? 0;
+  };
+  const [active, missing] = await Promise.all([count(false), count(true)]);
+  if (active > 20 && missing > active * MAX_DEACTIVATE_SHARE) {
+    log.warn(`not hiding ${missing} of ${active} products: more than half looks like a failed run, not sold-out stock`, { brandId });
+    return;
+  }
+
   const { error } = await supabaseAdmin
     .from('products')
     .update({ active: false })
@@ -306,13 +349,27 @@ async function deactivateMissingProducts(brandId: string, runStartedAt: string):
   if (error) throw new Error(`Could not mark missing products inactive: ${error.message}`);
 }
 
+const PAGE_ROWS = 1000;
+
+/** Every row a query returns; the database caps one response at 1000 rows. */
+async function selectAll<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_ROWS) {
+    const { data, error } = await page(from, from + PAGE_ROWS - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_ROWS) return rows;
+  }
+}
+
 async function loadExistingProducts(brandId: string): Promise<Map<string, { id: string; sourceUpdatedAt: string | null }>> {
-  const { data, error } = await supabaseAdmin
+  const data = await selectAll((from, to) => supabaseAdmin
     .from('products')
     .select('id, handle, source_updated_at')
-    .eq('brand_id', brandId);
-  if (error) throw new Error(`Could not load existing products: ${error.message}`);
-  return new Map((data ?? []).map((row) => [String(row.handle), {
+    .eq('brand_id', brandId)
+    .order('id')
+    .range(from, to)).catch((error) => { throw new Error(`Could not load existing products: ${String(error)}`); });
+  return new Map(data.map((row) => [String(row.handle), {
     id: String(row.id),
     sourceUpdatedAt: row.source_updated_at ? String(row.source_updated_at) : null,
   }]));
