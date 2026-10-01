@@ -49,7 +49,8 @@ export const BRANDS: BrandConfig[] = [
     // Whole store from /products.json (250 per request, with stock per size),
     // so no per-product hydration is needed.
     collections: [],
-    options: { hydrateVariants: false, perHostDelayMs: 700 },
+    // Shoppers are linked to Ethnic's international store (same product paths, USD prices).
+    options: { hydrateVariants: false, perHostDelayMs: 700, internationalHost: 'global.ethnc.com' },
   },
   {
     key: 'cambridge-pk',

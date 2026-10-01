@@ -28,6 +28,8 @@ export interface BrandConfig {
     preferUrlPattern?: string;
     /** Slow full scrape: refresh in the daily catalog run only, skipped by hourly stock runs. */
     dailyOnly?: boolean;
+    /** Shoppers outside Pakistan are linked to this storefront (same product paths) instead of the Pakistani one. */
+    internationalHost?: string;
     /** Page stating domestic delivery charges, for stores without a Shopify checkout quote. */
     deliveryPageUrl?: string;
     perHostDelayMs?: number;

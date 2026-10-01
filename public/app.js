@@ -179,9 +179,9 @@ function renderBrandRail(facets) {
 
 function renderHome() {
   const brands = state.home?.brands ?? [];
-  // Brand strip: each brand's newest piece as its cover; tapping one scrolls to its row.
+  // Brand strip: each brand's newest piece as its cover; tapping one opens that brand.
   dom.brandStrip.innerHTML = brands.filter((brand) => brand.cover).map((brand) => `
-    <button type="button" class="brand-card" data-jump="${escape(brand.key)}">
+    <button type="button" class="brand-card" data-brand="${escape(brand.key)}">
       <img src="${escape(brand.cover)}" alt="" loading="lazy" />
       <span class="brand-card-name">${escape(brand.name)}</span>
       <span class="brand-card-count">${brand.count} pieces</span>
@@ -603,12 +603,6 @@ dom.sectionChips.addEventListener('click', (event) => {
 dom.home.addEventListener('click', (event) => {
   const tile = event.target.closest('[data-key]');
   if (tile) { openDetail(tile.dataset.key); return; }
-  const jump = event.target.closest('[data-jump]');
-  if (jump) {
-    const row = document.getElementById(`row-${jump.dataset.jump}`);
-    if (row) window.scrollTo({ top: row.getBoundingClientRect().top + window.scrollY - headerHeight() - 12, behavior: 'smooth' });
-    return;
-  }
   const brand = event.target.closest('[data-brand]');
   if (brand) { navigate({ brand: brand.dataset.brand }); return; }
 });

@@ -202,6 +202,15 @@ export async function homeRows(perBrand = 4) {
   return { brands, updatedAt: new Date(loadedAt).toISOString() };
 }
 
+/** The brand's page for shoppers outside Pakistan, where the brand has an international store. */
+function shopperUrl(brandKey: string, url: string): string {
+  const host = BRANDS.find((brand) => brand.key === brandKey)?.options?.internationalHost;
+  if (!host) return url;
+  const link = new URL(url);
+  link.host = host;
+  return link.toString();
+}
+
 /** Everything the product view needs for one piece. */
 export async function productDetail(key: string) {
   const entry = (await current()).byKey.get(key);
@@ -213,7 +222,7 @@ export async function productDetail(key: string) {
     brandName: cleanBrand(product.brandName),
     title: entry.title,
     section: entry.section,
-    url: product.url,
+    url: shopperUrl(product.brandKey, product.url),
     description: product.description,
     images: product.images,
     priceMin: product.priceMin,
