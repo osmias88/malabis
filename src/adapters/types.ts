@@ -26,6 +26,8 @@ export interface BrandConfig {
     productUrlPattern?: string;
     /** SFCC sitemap: crawl URLs matching this pattern first (e.g. the current season). */
     preferUrlPattern?: string;
+    /** Slow full scrape: refresh in the daily catalog run only, skipped by hourly stock runs. */
+    dailyOnly?: boolean;
     /** Page stating domestic delivery charges, for stores without a Shopify checkout quote. */
     deliveryPageUrl?: string;
     perHostDelayMs?: number;

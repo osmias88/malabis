@@ -39,6 +39,7 @@ export function startServer(port: number, host = '127.0.0.1'): void {
 
   server.listen(port, host, () => {
     log.info(`dashboard on http://${host}:${port}`);
+    import('./catalog/store.js').then(({ warmCatalogue }) => warmCatalogue()).catch((error) => log.warn('catalogue unavailable', { error: String(error) }));
   });
 }
 
@@ -81,6 +82,38 @@ async function handle(request: import('node:http').IncomingMessage, url: URL, re
 
     case '/api/catalog':
       return catalog(url, response);
+
+    case '/api/products': {
+      const { queryProducts } = await import('./catalog/store.js');
+      const number = (name: string) => (url.searchParams.has(name) ? Number(url.searchParams.get(name)) : undefined);
+      return sendJson(response, 200, await queryProducts({
+        tab: url.searchParams.get('tab') ?? undefined,
+        brand: url.searchParams.get('brand') ?? undefined,
+        section: url.searchParams.get('section') ?? undefined,
+        size: url.searchParams.get('size') ?? undefined,
+        sort: url.searchParams.get('sort') ?? undefined,
+        q: url.searchParams.get('q') ?? undefined,
+        offset: number('offset'),
+        limit: number('limit'),
+      }));
+    }
+
+    case '/api/products/lookup': {
+      const { lookupProducts } = await import('./catalog/store.js');
+      const keys = (url.searchParams.get('keys') ?? '').split(',').map((key) => key.trim()).filter(Boolean).slice(0, 50);
+      return sendJson(response, 200, { products: await lookupProducts(keys) });
+    }
+
+    case '/api/product': {
+      const { productDetail } = await import('./catalog/store.js');
+      const product = await productDetail(url.searchParams.get('key') ?? '');
+      return product ? sendJson(response, 200, { product }) : sendJson(response, 404, { error: 'This piece is no longer available.' });
+    }
+
+    case '/api/home': {
+      const { homeRows } = await import('./catalog/store.js');
+      return sendJson(response, 200, await homeRows());
+    }
 
     case '/api/compare':
       if (!liveScrapingEnabled) return sendJson(response, 404, { error: 'not found' });

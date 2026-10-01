@@ -25,6 +25,8 @@ const shop = {
   profile: null,
   afterSignIn: null,
   helpers: null,
+  // Live price and stock per bag piece (productKey -> product, or null once no longer on sale).
+  live: new Map(),
 };
 
 const dom = {
@@ -55,10 +57,10 @@ export async function initShop(helpers) {
   renderHeader();
 }
 
-/** Called when the catalogue finishes loading, so bag lines can show live prices. */
+/** Called once the page has loaded, so bag lines can show live prices. */
 export function refreshBag() {
   renderHeader();
-  if (!dom.bag.hidden) renderBag();
+  refreshLive().then(rerenderBagIfShowing).catch((error) => console.error(error));
 }
 
 /* ---------- Session ---------- */
@@ -193,6 +195,7 @@ async function onSignedIn() {
   }
   api('/profile').then(({ profile }) => { shop.profile = profile; renderHeader(); }).catch(() => {});
   renderHeader();
+  refreshLive().then(rerenderBagIfShowing).catch(() => {});
 }
 
 /* ---------- Bag ---------- */
@@ -227,32 +230,46 @@ function saveBag() {
   });
 }
 
+/** product is the product view's data (key, title, brandName, images, variants). */
 export function addToBag(product, variant) {
-  const { cleanBrand, displayTitle, productKey } = shop.helpers;
   const line = {
-    productKey: productKey(product),
+    productKey: product.key,
     variantId: variant.externalId,
     quantity: 1,
     snapshot: {
-      title: displayTitle(product),
-      brand: cleanBrand(product.brandName),
+      title: product.title,
+      brand: product.brandName,
       size: variant.size ?? variant.title,
       image: product.images[0]?.url ?? null,
       price: variant.price.amount,
     },
   };
+  shop.live.set(product.key, { key: product.key, variants: product.variants });
   shop.bag = mergeBags(shop.bag, [line]);
   saveBag();
   toast(`${line.snapshot.title} (${line.snapshot.size}) added to your bag.`, { label: 'View bag', action: openBag });
 }
 
+/** Fetches current prices and stock for bag pieces from the server (all of them when force is set). */
+async function refreshLive(force = false) {
+  const keys = [...new Set(shop.bag.map((line) => line.productKey))].filter((key) => force || !shop.live.has(key));
+  if (!keys.length) return;
+  const products = await shop.helpers.lookupProducts(keys);
+  const found = new Map(products.map((product) => [product.key, product]));
+  for (const key of keys) shop.live.set(key, found.get(key) ?? null);
+}
+
+function rerenderBagIfShowing() {
+  // Never redraw over the checkout form or a confirmation.
+  if (!dom.bag.hidden && dom.bagTitle.textContent === 'Your bag') renderBag();
+}
+
 /** Each bag line with the live product and price, if the piece is still on sale. */
 function resolveBag() {
-  const products = shop.helpers.getProducts();
   return shop.bag.map((line) => {
-    const product = products.find((candidate) => shop.helpers.productKey(candidate) === line.productKey);
+    const product = shop.live.get(line.productKey);
     const variant = product?.variants.find((candidate) => candidate.externalId === line.variantId);
-    const status = !products.length ? 'loading' : !product || !variant ? 'gone' : !variant.available ? 'soldout' : 'ok';
+    const status = !shop.live.has(line.productKey) ? 'loading' : !product || !variant ? 'gone' : !variant.available ? 'soldout' : 'ok';
     const unit = variant ? wholeDollars(variant.price.amount) : null;
     return { line, product, variant, status, unit, total: unit === null ? null : unit * line.quantity };
   });
@@ -274,6 +291,7 @@ function renderHeader() {
 function openBag() {
   renderBag();
   openPanel(dom.bag);
+  refreshLive(true).then(rerenderBagIfShowing).catch((error) => console.error(error));
 }
 
 function renderBag() {

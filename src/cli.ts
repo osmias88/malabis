@@ -153,9 +153,12 @@ program
   .action(async (options: IngestOptions) => {
     setLogLevel(options.logLevel as 'info');
     if (options.all && options.brand) throw new Error('Use either --brand <key> or --all, not both.');
-    const brands = options.all ? BRANDS : [getBrand(options.brand ?? requireBrand())];
     const mode = options.mode || 'catalog';
     if (mode !== 'catalog' && mode !== 'stock') throw new Error('--mode must be catalog or stock.');
+    // Brands with a slow full scrape only refresh in the daily catalog run.
+    const brands = options.all
+      ? BRANDS.filter((brand) => mode === 'catalog' || !brand.options?.dailyOnly)
+      : [getBrand(options.brand ?? requireBrand())];
     const { ingestBrand } = await import('./db/ingest.js');
 
     const brandConcurrency = Math.max(1, Math.min(options.brandConcurrency, brands.length));

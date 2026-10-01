@@ -94,7 +94,9 @@ export async function scrapeBrand(brand: BrandConfig, options: RunOptions = {}):
     // items are dropped here so they never reach the database. On ingest,
     // previously saved ones are then marked inactive as "missing".
     const stitched = isCatalogueClothing(parsed.data) ? toStitchedOnly(parsed.data) : null;
-    if (!stitched) {
+    // Sold-out pieces are skipped too: they are never shown, and on ingest any
+    // previously saved one is marked inactive until it comes back in stock.
+    if (!stitched || stitched.stockStatus === 'out_of_stock') {
       skipped += 1;
       context.logger.debug(`skipped non-catalogue product ${parsed.data.handle}`);
       continue;
@@ -103,7 +105,7 @@ export async function scrapeBrand(brand: BrandConfig, options: RunOptions = {}):
     options.onProduct?.(stitched);
   }
 
-  if (skipped) context.logger.info(`skipped ${skipped} festive, unstitched or non-clothing products`);
+  if (skipped) context.logger.info(`skipped ${skipped} sold-out, festive, unstitched or non-clothing products`);
 
   const stats: ScrapeStats = {
     brandKey: brand.key,

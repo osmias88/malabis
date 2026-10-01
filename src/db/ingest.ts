@@ -140,6 +140,8 @@ async function persistProducts(brandId: string, products: Product[]): Promise<vo
           scraped_at: product.scrapedAt,
           source_updated_at: product.sourceUpdatedAt ?? null,
           published_at: product.publishedAt ?? null,
+          // Charts read during the scrape (Sapphire); other brands are filled by refreshSizeCharts.
+          ...(product.sizeCharts ? { size_chart: product.sizeCharts.length ? product.sizeCharts : null, size_chart_checked_at: product.scrapedAt } : {}),
           active: true,
           last_seen_at: product.scrapedAt,
         })), { onConflict: 'brand_id,handle' })

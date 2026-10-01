@@ -21,7 +21,7 @@ on:
       limit:
         description: Maximum products per brand
         required: true
-        default: '400'
+        default: '10000'
         type: string
       mode:
         description: Refresh mode
@@ -43,13 +43,13 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     environment: malabis
-    timeout-minutes: 90
+    timeout-minutes: 150
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       INGEST_BRAND: ${{ inputs.brand || 'all' }}
-      INGEST_LIMIT: ${{ inputs.limit || '400' }}
+      INGEST_LIMIT: ${{ inputs.limit || '10000' }}
 
     steps:
       - name: Check out repository

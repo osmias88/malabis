@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { chartsFromPage } from '../sizing/charts.js';
 import type { Product, ProductImage, ProductVariant } from '../core/types.js';
 import {
   absoluteUrl,
@@ -250,6 +251,7 @@ export class SfccAdapter implements ScraperAdapter {
       variants,
       source: this.name,
       scrapedAt: new Date().toISOString(),
+      sizeCharts: chartsFromPage($),
     };
   }
 

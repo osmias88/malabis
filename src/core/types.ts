@@ -68,6 +68,8 @@ export const ProductSchema = z.object({
   sourceUpdatedAt: z.string().datetime({ offset: true }).nullable().optional(),
   /** When the brand first published the product, if the storefront says. */
   publishedAt: z.string().datetime({ offset: true }).nullable().optional(),
+  /** Size charts read during the scrape, for stores that put them on the product page. */
+  sizeCharts: z.array(z.object({ title: z.string().nullable(), rows: z.array(z.array(z.string())), image: z.string().nullable() })).nullable().optional(),
 });
 export type Product = z.infer<typeof ProductSchema>;
 

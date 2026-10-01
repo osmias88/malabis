@@ -2,19 +2,19 @@ import { addToBag, initShop, refreshBag } from '/shop.js';
 
 const el = (id) => document.getElementById(id);
 const PAGE_SIZE = 48;
-const NEW_DAYS = 14;
 
+// The server filters, sorts and pages the catalogue; the page only asks for what it shows.
 const state = {
-  products: [],
   brands: [],
-  fx: null,
+  home: null,
+  listing: null,
+  items: [],
   tab: 'all', // 'all' | 'women' | 'men' | 'girls' | 'boys'
   brand: 'all',
   section: 'all',
   size: 'all',
   sort: 'newest',
   query: '',
-  shown: PAGE_SIZE,
 };
 
 const dom = {
@@ -34,8 +34,6 @@ const TABS = {
   boys: { label: 'Boys', title: 'Boys' },
 };
 
-const BRAND_ROW_SIZE = 4;
-
 // Whole dollars, rounded up so a price is never shown lower than it is.
 const money = (value) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency: value.currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
@@ -50,119 +48,27 @@ async function getJson(url) {
 
 /* ---------- Data ---------- */
 
-async function loadCatalogue() {
-  try {
-    const [{ brands }, result] = await Promise.all([getJson('/api/brands'), getJson('/api/catalog?limit=2000')]);
-    state.brands = brands;
-    state.products = result.products;
-    state.fx = result.fx;
-    const latest = Math.max(...state.products.map((product) => Date.parse(product.scrapedAt)));
-    if (Number.isFinite(latest)) {
-      dom.updated.textContent = `Last updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(latest)}.`;
-    }
-    dom.status.hidden = true;
-    dom.grid.setAttribute('aria-busy', 'false');
-    render();
-  } catch (error) {
-    dom.grid.setAttribute('aria-busy', 'false');
-    dom.status.textContent = 'The collection could not be loaded. Please try again shortly.';
-    dom.status.classList.add('error');
-    console.error(error);
-  }
+function listingParams(offset, limit) {
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (state.tab !== 'all') params.set('tab', state.tab);
+  if (state.brand !== 'all') params.set('brand', state.brand);
+  if (state.brand !== 'all' && state.section !== 'all') params.set('section', state.section);
+  if (state.size !== 'all') params.set('size', state.size);
+  if (state.sort !== 'newest') params.set('sort', state.sort);
+  if (state.query.trim()) params.set('q', state.query.trim());
+  return params;
 }
 
-function listedTime(product) { return Date.parse(product.listedAt ?? product.scrapedAt) || 0; }
-function isNew(product) { return Date.now() - listedTime(product) < NEW_DAYS * 86400000; }
+const fetchListing = (offset, limit = PAGE_SIZE) => getJson(`/api/products?${listingParams(offset, limit)}`);
+
+/** Prices and stock for bag lines, used by the bag. */
+async function lookupProducts(keys) {
+  if (!keys.length) return [];
+  const { products } = await getJson(`/api/products/lookup?keys=${encodeURIComponent(keys.join(','))}`);
+  return products;
+}
+
 function brandName(key) { return cleanBrand(state.brands.find((brand) => brand.key === key)?.name ?? key); }
-
-/* ---------- Classification ---------- */
-
-function audienceOf(product) {
-  const text = [product.title, product.productType, product.url, ...(product.tags || [])].filter(Boolean).join(' ').toLowerCase();
-  if (/\bboy\b|\bboys\b|cambridge junior/.test(text)) return 'boys';
-  if (/\bgirl\b|\bgirls\b|daughter/.test(text)) return 'girls';
-  if (/\bkids?\b|\bjunior\b|\btoddler\b|chota fusion|\bws\d+[- ]kids\b/.test(text)) {
-    // Cambridge's junior range is boys-only and Ethnic's is girls-only.
-    if (product.brandKey === 'cambridge-pk') return 'boys';
-    if (product.brandKey === 'ethnic-pk') return 'girls';
-    return 'kids';
-  }
-  if (product.brandKey === 'cambridge-pk') return 'men';
-  if (/\bmen\b|\bmens\b|\bmale\b|\bgents\b|kameez shalwar|jubba|waistcoat|\bpajama\b|mashriq|for him/.test(text)) return 'men';
-  // Some stores (e.g. Sapphire) only name the audience in the description:
-  // "Shop SAPPHIRE online for mens KURTA ...".
-  const forWhom = (product.description || '').toLowerCase().match(/\bfor (mens?|gents|boys?|girls?|kids)\b/);
-  if (forWhom) {
-    if (/^boys?$/.test(forWhom[1])) return 'boys';
-    if (/^girls?$/.test(forWhom[1])) return 'girls';
-    if (forWhom[1] === 'kids') return 'kids';
-    return 'men';
-  }
-  return 'women';
-}
-
-// Kids pieces that don't say boys or girls appear under both.
-function inTab(product, tab) {
-  if (tab === 'all') return true;
-  const audience = audienceOf(product);
-  return audience === tab || (audience === 'kids' && (tab === 'girls' || tab === 'boys'));
-}
-
-const GARMENTS = [
-  ['Shalwar Kameez', /shalwar|salwar|kameez|pajama suit|pyjama suit|waistcoat suit|kurta pajama/],
-  ['Kurtas & Suits', /kurta|kurti|\d ?piece|\bsuit\b|lawn|pret|anarkali|kaftan/],
-  ['Co-ord Sets', /co-?ord|\bsets?\b|jumpsuit/],
-  ['Dresses', /dress|frock|maxi|gown/],
-  ['Polos & Tees', /polo|t-?shirt|\btees?\b|athleisure/],
-  ['Blazers & Jackets', /blazer|jacket|coat\b|waistcoat/],
-  ['Knitwear', /sweater|cardigan|hoodie|sweatshirt|knit/],
-  ['Shirts & Tops', /shirt|\btops?\b|blouse|tunic/],
-  ['Bottoms', /trouser|pant|jeans|denim|skirt|shorts|culotte|palazzo|bottom|chino|jogger/],
-];
-
-function garmentOf(product) {
-  const text = [product.title, product.productType, product.handle].filter(Boolean).join(' ').toLowerCase().replace(/[-_]+/g, ' ');
-  for (const [label, pattern] of GARMENTS) if (pattern.test(text)) return label;
-  return 'More';
-}
-
-// Brands whose own product types are their collection lines (Lawn, Pret, Fusion…).
-const BRAND_LINES = new Set(['afrozeh-pk', 'ethnic-pk']);
-
-function sectionOf(product) {
-  if (state.brand !== 'all' && BRAND_LINES.has(product.brandKey) && product.productType) return titleCase(product.productType);
-  return garmentOf(product);
-}
-
-/* ---------- Filtering ---------- */
-
-function scopedProducts({ ignoreSection = false, ignoreSize = false } = {}) {
-  const term = state.query.trim().toLowerCase();
-  return state.products.filter((product) => {
-    if (!inTab(product, state.tab)) return false;
-    if (state.brand !== 'all' && product.brandKey !== state.brand) return false;
-    if (!ignoreSection && state.brand !== 'all' && state.section !== 'all' && sectionOf(product) !== state.section) return false;
-    if (!ignoreSize && state.size !== 'all' && !product.variants.some((variant) => variant.available && variant.size === state.size)) return false;
-    if (term) {
-      const haystack = [product.title, product.brandName, product.productType, garmentOf(product), ...product.tags].filter(Boolean).join(' ').toLowerCase();
-      if (!haystack.includes(term)) return false;
-    }
-    return true;
-  });
-}
-
-function sortProducts(products) {
-  const sorted = [...products];
-  if (state.sort === 'price-asc') return sorted.sort((a, b) => a.priceMin.amount - b.priceMin.amount);
-  if (state.sort === 'price-desc') return sorted.sort((a, b) => b.priceMin.amount - a.priceMin.amount);
-  return sorted.sort((a, b) => listedTime(b) - listedTime(a));
-}
-
-function countBy(products, keyOf) {
-  const counts = new Map();
-  for (const product of products) counts.set(keyOf(product), (counts.get(keyOf(product)) ?? 0) + 1);
-  return counts;
-}
 
 /* ---------- URL state ---------- */
 
@@ -181,7 +87,7 @@ function writeUrl(push) {
   const params = new URLSearchParams();
   if (state.tab !== 'all') params.set('tab', state.tab);
   if (state.brand !== 'all') params.set('brand', state.brand);
-  if (state.section !== 'all') params.set('section', state.section);
+  if (state.brand !== 'all' && state.section !== 'all') params.set('section', state.section);
   if (state.size !== 'all') params.set('size', state.size);
   if (state.sort !== 'newest') params.set('sort', state.sort);
   if (state.query.trim()) params.set('q', state.query.trim());
@@ -195,7 +101,6 @@ function navigate(changes, { scroll = true } = {}) {
     if (!('section' in changes)) state.section = 'all';
     if (!('size' in changes)) state.size = 'all';
   }
-  state.shown = PAGE_SIZE;
   writeUrl(true);
   render();
   closeRail();
@@ -207,16 +112,39 @@ function isHomeView() { return state.tab === 'all' && state.brand === 'all' && !
 
 /* ---------- Rendering ---------- */
 
-function render() {
-  if (!state.products.length) return;
+let renderCount = 0;
+
+async function render() {
+  const run = ++renderCount;
   renderTabs();
-  renderBrandRail();
   const home = isHomeView();
   dom.home.hidden = !home;
   // The home page is the brand rows; the full grid is for tabs, brands and search.
   dom.listing.hidden = home;
-  if (home) renderHome();
-  renderListing();
+  dom.grid.setAttribute('aria-busy', 'true');
+  try {
+    const [listing, homeData] = await Promise.all([
+      fetchListing(0, home ? 0 : PAGE_SIZE),
+      home && !state.home ? getJson('/api/home') : Promise.resolve(state.home),
+    ]);
+    if (run !== renderCount) return; // a newer render has started
+    state.listing = listing;
+    state.items = listing.items;
+    state.home = homeData;
+    renderBrandRail(listing.facets);
+    if (home) renderHome();
+    else renderListing();
+    dom.status.hidden = true;
+    dom.updated.textContent = `Last updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(listing.updatedAt))}.`;
+  } catch (error) {
+    if (run !== renderCount) return;
+    dom.status.hidden = false;
+    dom.status.textContent = 'The collection could not be loaded. Please try again shortly.';
+    dom.status.classList.add('error');
+    console.error(error);
+  } finally {
+    if (run === renderCount) dom.grid.setAttribute('aria-busy', 'false');
+  }
 }
 
 function renderTabs() {
@@ -227,69 +155,54 @@ function renderTabs() {
   }
 }
 
-function renderBrandRail() {
-  const tabProducts = state.products.filter((product) => inTab(product, state.tab));
-  const brandCounts = countBy(tabProducts, (product) => product.brandKey);
-  const brands = state.brands.filter((brand) => brandCounts.get(brand.key));
-
-  const brandItems = brands.map((brand) => {
+function renderBrandRail(facets) {
+  const counts = facets.brands;
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const brandItems = state.brands.filter((brand) => counts[brand.key]).map((brand) => {
     const active = state.brand === brand.key;
-    let sections = '';
-    if (active) {
-      const sectionCounts = countBy(tabProducts.filter((product) => product.brandKey === brand.key), sectionOf);
-      sections = `<ul class="rail-sections">${[...sectionCounts].sort((a, b) => b[1] - a[1]).map(([name, count]) => `
+    const sections = active && facets.sections.length
+      ? `<ul class="rail-sections">${facets.sections.map(([name, count]) => `
         <li><button type="button" class="rail-section ${state.section === name ? 'is-current' : ''}" data-section="${escape(name)}">
-          <span>${escape(name)}</span><span class="rail-count">${count}</span></button></li>`).join('')}</ul>`;
-    }
+          <span>${escape(name)}</span><span class="rail-count">${count}</span></button></li>`).join('')}</ul>`
+      : '';
     return `<div class="rail-brand ${active ? 'is-open' : ''}">
       <button type="button" class="rail-link ${active ? 'is-current' : ''}" data-brand="${escape(brand.key)}" aria-expanded="${active}">
-        <span>${escape(cleanBrand(brand.name))}</span><span class="rail-count">${brandCounts.get(brand.key)}</span>
+        <span>${escape(cleanBrand(brand.name))}</span><span class="rail-count">${counts[brand.key]}</span>
       </button>${sections}</div>`;
   }).join('');
 
   dom.brandList.innerHTML = `
     <button type="button" class="rail-link ${state.brand === 'all' ? 'is-current' : ''}" data-brand="all">
-      <span>All brands</span><span class="rail-count">${tabProducts.length}</span>
+      <span>All brands</span><span class="rail-count">${total}</span>
     </button>${brandItems}`;
 }
 
 function renderHome() {
-  const byNewest = sortProducts(state.products.filter((product) => product.images.length));
-
-  // Brand strip: each brand's newest piece as its cover; tapping one
-  // scrolls to that brand's row below.
-  dom.brandStrip.innerHTML = state.brands.map((brand) => {
-    const items = byNewest.filter((product) => product.brandKey === brand.key);
-    if (!items.length) return '';
-    return `<button type="button" class="brand-card" data-jump="${escape(brand.key)}">
-      <img src="${escape(items[0].images[0].url)}" alt="" loading="lazy" />
-      <span class="brand-card-name">${escape(cleanBrand(brand.name))}</span>
-      <span class="brand-card-count">${items.length} pieces</span>
-    </button>`;
-  }).join('');
+  const brands = state.home?.brands ?? [];
+  // Brand strip: each brand's newest piece as its cover; tapping one scrolls to its row.
+  dom.brandStrip.innerHTML = brands.filter((brand) => brand.cover).map((brand) => `
+    <button type="button" class="brand-card" data-jump="${escape(brand.key)}">
+      <img src="${escape(brand.cover)}" alt="" loading="lazy" />
+      <span class="brand-card-name">${escape(brand.name)}</span>
+      <span class="brand-card-count">${brand.count} pieces</span>
+    </button>`).join('');
 
   // One row per brand: its newest pieces and a link to the rest.
-  dom.brandRows.innerHTML = state.brands.map((brand) => {
-    const items = byNewest.filter((product) => product.brandKey === brand.key);
-    if (!items.length) return '';
-    const name = cleanBrand(brand.name);
-    return `<section class="home-block brand-row" id="row-${escape(brand.key)}" aria-label="${escape(name)}">
+  dom.brandRows.innerHTML = brands.filter((brand) => brand.items.length).map((brand) => `
+    <section class="home-block brand-row" id="row-${escape(brand.key)}" aria-label="${escape(brand.name)}">
       <div class="block-head">
-        <h2>${escape(name)}</h2>
-        <button type="button" class="block-link" data-brand="${escape(brand.key)}">Shop all ${items.length} →</button>
+        <h2>${escape(brand.name)}</h2>
+        <button type="button" class="block-link" data-brand="${escape(brand.key)}">Shop all ${brand.count} →</button>
       </div>
-      <div class="product-grid">${items.slice(0, BRAND_ROW_SIZE).map(productCard).join('')}</div>
-    </section>`;
-  }).join('');
-
+      <div class="product-grid">${brand.items.map(productCard).join('')}</div>
+    </section>`).join('');
 }
 
 function renderListing() {
-  const home = isHomeView();
+  const { total, facets } = state.listing;
   const brandLabel = state.brand === 'all' ? 'All brands' : brandName(state.brand);
-  dom.listingEyebrow.textContent = home ? 'Across every brand' : brandLabel;
+  dom.listingEyebrow.textContent = brandLabel;
   if (state.query.trim()) dom.listingTitle.textContent = `Results for “${state.query.trim()}”`;
-  else if (home) dom.listingTitle.textContent = 'Everything, newest first';
   else if (state.brand !== 'all' && state.section !== 'all') dom.listingTitle.textContent = `${state.tab === 'all' ? '' : `${TABS[state.tab].label} · `}${state.section}`;
   else if (state.brand !== 'all') dom.listingTitle.textContent = state.tab === 'all' ? `New from ${brandLabel}` : `${TABS[state.tab].label} at ${brandLabel}`;
   else dom.listingTitle.textContent = TABS[state.tab].title;
@@ -312,44 +225,59 @@ function renderListing() {
     navigate(clear, { scroll: false });
   };
 
-  // Section chips: the brand's own lines, or garment types across brands.
-  const sectionCounts = countBy(scopedProducts({ ignoreSection: true }), sectionOf);
-  const sections = [...sectionCounts].sort((a, b) => b[1] - a[1]);
   // Sections are a brand's own lines, so they only appear once a brand is picked.
-  dom.sectionChips.hidden = home || state.brand === 'all' || sections.length < 2;
+  dom.sectionChips.hidden = state.brand === 'all' || facets.sections.length < 2;
   dom.sectionChips.innerHTML = `<button type="button" class="section-chip ${state.section === 'all' ? 'is-current' : ''}" data-section="all">All</button>`
-    + sections.map(([name, count]) => `<button type="button" class="section-chip ${state.section === name ? 'is-current' : ''}" data-section="${escape(name)}">${escape(name)} <span>${count}</span></button>`).join('');
+    + facets.sections.map(([name, count]) => `<button type="button" class="section-chip ${state.section === name ? 'is-current' : ''}" data-section="${escape(name)}">${escape(name)} <span>${count}</span></button>`).join('');
 
-  const sizes = unique(scopedProducts({ ignoreSize: true }).flatMap((product) => product.variants.filter((variant) => variant.available).map((variant) => variant.size)).filter(isUsefulSize)).sort(sizeSort);
-  dom.size.innerHTML = '<option value="all">All sizes</option>' + sizes.map((size) => `<option value="${escape(size)}">${escape(size)}</option>`).join('');
-  dom.size.value = sizes.includes(state.size) ? state.size : 'all';
+  dom.size.innerHTML = '<option value="all">All sizes</option>' + facets.sizes.map((size) => `<option value="${escape(size)}">${escape(size)}</option>`).join('');
+  dom.size.value = facets.sizes.includes(state.size) ? state.size : 'all';
   dom.sort.value = state.sort;
 
-  const products = sortProducts(scopedProducts());
-  dom.count.textContent = `${products.length} ${products.length === 1 ? 'piece' : 'pieces'}`;
-  dom.grid.innerHTML = products.length
-    ? products.slice(0, state.shown).map(productCard).join('')
+  dom.count.textContent = `${total.toLocaleString('en-US')} ${total === 1 ? 'piece' : 'pieces'}`;
+  dom.grid.innerHTML = state.items.length
+    ? state.items.map(productCard).join('')
     : '<div class="empty"><strong>Nothing here yet</strong><span>Try another brand, section or size.</span></div>';
-  dom.showMore.hidden = products.length <= state.shown;
-  dom.showMore.textContent = `Show more (${products.length - Math.min(state.shown, products.length)} left)`;
+  updateShowMore();
 }
 
-function productCard(product) {
-  const [first, second] = product.images;
-  const discount = discountOf(product);
-  const badge = discount >= 0.05 ? `<span class="badge badge-sale">−${Math.round(discount * 100)}%</span>` : isNew(product) ? '<span class="badge">New</span>' : '';
-  const compare = product.variants.find((variant) => variant.compareAtPrice)?.compareAtPrice;
-  const price = product.priceMin.amount === product.priceMax.amount ? money(product.priceMin) : `From ${money(product.priceMin)}`;
-  return `<article class="product-card" tabindex="0" data-key="${escape(productKey(product))}">
+function updateShowMore() {
+  const left = (state.listing?.total ?? 0) - state.items.length;
+  dom.showMore.hidden = left <= 0;
+  dom.showMore.disabled = false;
+  dom.showMore.textContent = `Show more (${left.toLocaleString('en-US')} left)`;
+}
+
+async function showMore() {
+  dom.showMore.disabled = true;
+  dom.showMore.textContent = 'Loading…';
+  const run = renderCount;
+  try {
+    const next = await fetchListing(state.items.length);
+    if (run !== renderCount) return;
+    state.items.push(...next.items);
+    dom.grid.insertAdjacentHTML('beforeend', next.items.map(productCard).join(''));
+    state.listing.total = next.total;
+  } catch (error) {
+    console.error(error);
+  }
+  updateShowMore();
+}
+
+function productCard(card) {
+  const [first, second] = card.images;
+  const badge = card.discount >= 0.05 ? `<span class="badge badge-sale">−${Math.round(card.discount * 100)}%</span>` : card.isNew ? '<span class="badge">New</span>' : '';
+  const price = card.priceMin.amount === card.priceMax.amount ? money(card.priceMin) : `From ${money(card.priceMin)}`;
+  return `<article class="product-card" tabindex="0" data-key="${escape(card.key)}">
     <figure class="${second ? 'has-alt' : ''}">
-      ${first ? `<img loading="lazy" src="${escape(first.url)}" alt="${escape(displayTitle(product))}" />` : '<span class="image-fallback">M</span>'}
-      ${second ? `<img class="alt-image" loading="lazy" src="${escape(second.url)}" alt="" />` : ''}
+      ${first ? `<img loading="lazy" src="${escape(first)}" alt="${escape(card.title)}" />` : '<span class="image-fallback">M</span>'}
+      ${second ? `<img class="alt-image" loading="lazy" src="${escape(second)}" alt="" />` : ''}
       ${badge}
     </figure>
     <div class="product-info">
-      <p class="product-brand">${escape(cleanBrand(product.brandName))}</p>
-      <h3>${escape(displayTitle(product))}</h3>
-      <p class="product-price"><span>${price}</span>${compare && discount >= 0.05 ? `<del>${money(compare)}</del>` : ''}</p>
+      <p class="product-brand">${escape(card.brandName)}</p>
+      <h3>${escape(card.title)}</h3>
+      <p class="product-price"><span>${price}</span>${card.compareAt && card.discount >= 0.05 ? `<del>${money(card.compareAt)}</del>` : ''}</p>
     </div>
   </article>`;
 }
@@ -363,26 +291,79 @@ function deliveryNote(product) {
   return `<p class="detail-delivery">${text}</p>`;
 }
 
-function discountOf(product) {
-  return product.variants.reduce((best, variant) => {
-    if (!variant.compareAtPrice?.amount || !variant.price.amount) return best;
-    return Math.max(best, 1 - variant.price.amount / variant.compareAtPrice.amount);
-  }, 0);
-}
-
-// Store titles are often SKU codes in capitals ("DRESS (E2264/301/422)").
-function displayTitle(product) {
-  let title = product.title.replace(/\s*\((?=[^)]*\d)[A-Z0-9/ -]+\)\s*$/i, '').replace(/\s+/g, ' ').trim();
-  if (title === title.toUpperCase()) title = titleCase(title);
-  if (product.brandKey === 'ethnic-pk' && product.productType && title.split(' ').length <= 2) title = `${titleCase(product.productType)} ${title}`;
-  return title || product.title;
-}
-
-function titleCase(value) {
-  return value.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (match, lead, letter) => lead + letter.toUpperCase());
-}
-
 /* ---------- Product detail ---------- */
+
+const details = new Map();
+
+async function openDetail(key) {
+  let product = details.get(key);
+  if (!product) {
+    try {
+      product = (await getJson(`/api/product?key=${encodeURIComponent(key)}`)).product;
+      details.set(key, product);
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+  }
+
+  const images = product.images.length ? product.images : [{ url: '', alt: product.title }];
+  const sizes = product.variants.map((variant) => `
+    <button type="button" class="size-option" data-variant="${escape(variant.externalId)}" ${variant.available ? '' : 'disabled'}
+      aria-pressed="false" aria-label="Size ${escape(variant.size ?? variant.title)}${variant.available ? '' : ', sold out'}">${escape(variant.size ?? variant.title)}</button>`).join('');
+  const brand = product.brandName;
+
+  dom.drawerBody.innerHTML = `
+    <div class="detail-layout">
+      <div class="detail-gallery-container">
+        <div class="detail-slider" id="detail-slider" tabindex="0" role="region" aria-label="Product images">
+          <div class="detail-slides-track">
+            ${images.map((image, idx) => `
+              <div class="detail-slide ${idx === 0 ? 'is-active' : ''}" data-index="${idx}">
+                ${image.url ? `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" loading="${idx === 0 ? 'eager' : 'lazy'}" />` : '<span class="image-fallback">M</span>'}
+              </div>`).join('')}
+          </div>
+          ${images.length > 1 ? `
+            <button class="slider-arrow slider-prev" id="slider-prev-btn" type="button" aria-label="Previous image">‹</button>
+            <button class="slider-arrow slider-next" id="slider-next-btn" type="button" aria-label="Next image">›</button>
+            <div class="slider-counter"><span id="slider-current-num">1</span> / ${images.length}</div>` : ''}
+        </div>
+        ${images.length > 1 ? `
+          <div class="detail-thumbnails" id="detail-thumbnails">
+            ${images.map((image, idx) => `
+              <button class="detail-thumb ${idx === 0 ? 'is-active' : ''}" type="button" data-index="${idx}" aria-label="View photo ${idx + 1}">
+                <img src="${escape(image.url)}" alt="" loading="lazy" />
+              </button>`).join('')}
+          </div>` : ''}
+      </div>
+
+      <div class="detail-copy">
+        <p class="eyebrow">${escape(brand)} · ${escape(product.section)}</p>
+        <h2 id="drawer-title">${escape(product.title)}</h2>
+        <p class="detail-price">${money(product.priceMin)}</p>
+        ${deliveryNote(product)}
+        <div class="size-picker">
+          <p class="variant-heading">Size <span id="size-choice"></span></p>
+          <div class="size-options" role="group" aria-label="Choose a size">${sizes}</div>
+          ${sizeGuide(product, brand)}
+        </div>
+        <div class="detail-actions">
+          <button type="button" class="shop-link" id="add-to-bag" disabled>Choose a size</button>
+          <button type="button" class="size-link" data-more-brand="${escape(product.brandKey)}">More from ${escape(brand)}</button>
+        </div>
+        ${formatProductDescription(product.description)}
+      </div>
+    </div>`;
+
+  dom.drawer.hidden = false;
+  document.body.classList.add('drawer-open');
+  initSizePicker(product);
+  dom.drawerBody.querySelector('[data-more-brand]').addEventListener('click', (event) => {
+    closeDetail();
+    navigate({ brand: event.currentTarget.dataset.moreBrand, tab: state.tab });
+  });
+  initDetailSlider(images.length);
+}
 
 function formatProductDescription(raw) {
   if (!raw) return '';
@@ -437,68 +418,6 @@ function formatProductDescription(raw) {
 }
 
 let activeDetailSlider = null;
-
-function openDetail(key) {
-  const product = state.products.find((item) => productKey(item) === key);
-  if (!product) return;
-
-  const images = product.images.length ? product.images : [{ url: '', alt: product.title }];
-  const sizes = product.variants.map((variant) => `
-    <button type="button" class="size-option" data-variant="${escape(variant.externalId)}" ${variant.available ? '' : 'disabled'}
-      aria-pressed="false" aria-label="Size ${escape(variant.size ?? variant.title)}${variant.available ? '' : ', sold out'}">${escape(variant.size ?? variant.title)}</button>`).join('');
-  const brand = cleanBrand(product.brandName);
-
-  dom.drawerBody.innerHTML = `
-    <div class="detail-layout">
-      <div class="detail-gallery-container">
-        <div class="detail-slider" id="detail-slider" tabindex="0" role="region" aria-label="Product images">
-          <div class="detail-slides-track">
-            ${images.map((image, idx) => `
-              <div class="detail-slide ${idx === 0 ? 'is-active' : ''}" data-index="${idx}">
-                ${image.url ? `<img src="${escape(image.url)}" alt="${escape(image.alt ?? product.title)}" loading="${idx === 0 ? 'eager' : 'lazy'}" />` : '<span class="image-fallback">M</span>'}
-              </div>`).join('')}
-          </div>
-          ${images.length > 1 ? `
-            <button class="slider-arrow slider-prev" id="slider-prev-btn" type="button" aria-label="Previous image">‹</button>
-            <button class="slider-arrow slider-next" id="slider-next-btn" type="button" aria-label="Next image">›</button>
-            <div class="slider-counter"><span id="slider-current-num">1</span> / ${images.length}</div>` : ''}
-        </div>
-        ${images.length > 1 ? `
-          <div class="detail-thumbnails" id="detail-thumbnails">
-            ${images.map((image, idx) => `
-              <button class="detail-thumb ${idx === 0 ? 'is-active' : ''}" type="button" data-index="${idx}" aria-label="View photo ${idx + 1}">
-                <img src="${escape(image.url)}" alt="" loading="lazy" />
-              </button>`).join('')}
-          </div>` : ''}
-      </div>
-
-      <div class="detail-copy">
-        <p class="eyebrow">${escape(brand)} · ${escape(sectionOf(product))}</p>
-        <h2 id="drawer-title">${escape(displayTitle(product))}</h2>
-        <p class="detail-price">${money(product.priceMin)}</p>
-        ${deliveryNote(product)}
-        <div class="size-picker">
-          <p class="variant-heading">Size <span id="size-choice"></span></p>
-          <div class="size-options" role="group" aria-label="Choose a size">${sizes}</div>
-          ${sizeGuide(product, brand)}
-        </div>
-        <div class="detail-actions">
-          <button type="button" class="shop-link" id="add-to-bag" disabled>Choose a size</button>
-          <button type="button" class="size-link" data-more-brand="${escape(product.brandKey)}">More from ${escape(brand)}</button>
-        </div>
-        ${formatProductDescription(product.description)}
-      </div>
-    </div>`;
-
-  dom.drawer.hidden = false;
-  document.body.classList.add('drawer-open');
-  initSizePicker(product);
-  dom.drawerBody.querySelector('[data-more-brand]').addEventListener('click', (event) => {
-    closeDetail();
-    navigate({ brand: event.currentTarget.dataset.moreBrand, tab: state.tab });
-  });
-  initDetailSlider(images.length);
-}
 
 // The brand's own size chart, shown under the sizes; a link to the brand when there is none.
 function sizeGuide(product, brand) {
@@ -614,18 +533,14 @@ function closeRail() {
   document.body.classList.remove('drawer-open');
 }
 
+function titleCase(value) {
+  return value.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (match, lead, letter) => lead + letter.toUpperCase());
+}
+
+
 /* ---------- Helpers ---------- */
 
-function productKey(product) { return `${product.brandKey}:${product.externalId}`; }
 function cleanBrand(name) { return name.replace(/ PK$/, ''); }
-function unique(values) { return [...new Set(values)]; }
-function isUsefulSize(size) { return Boolean(size) && size !== 'Default' && !/(?:\bML\b|METERS?|\bPIECE\b)/i.test(size); }
-function sizeSort(left, right) {
-  const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'FREE'];
-  const leftIndex = order.indexOf(left); const rightIndex = order.indexOf(right);
-  if (leftIndex !== -1 || rightIndex !== -1) return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
-  return left.localeCompare(right, undefined, { numeric: true });
-}
 function escape(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`); }
 
 /* ---------- Events ---------- */
@@ -673,7 +588,7 @@ for (const container of [dom.grid, dom.brandRows]) {
   });
 }
 
-dom.showMore.addEventListener('click', () => { state.shown += PAGE_SIZE; renderListing(); });
+dom.showMore.addEventListener('click', showMore);
 dom.size.addEventListener('change', () => navigate({ size: dom.size.value }, { scroll: false }));
 dom.sort.addEventListener('change', () => navigate({ sort: dom.sort.value }, { scroll: false }));
 
@@ -682,10 +597,9 @@ dom.search.addEventListener('input', () => {
   window.clearTimeout(searchTimer);
   searchTimer = window.setTimeout(() => {
     state.query = dom.search.value;
-    state.shown = PAGE_SIZE;
     writeUrl(false);
     render();
-  }, 180);
+  }, 250);
 });
 
 dom.railOpen.addEventListener('click', openRail);
@@ -704,6 +618,11 @@ document.addEventListener('keydown', (event) => {
 });
 
 readUrl();
-initShop({ getProducts: () => state.products, money, escape, displayTitle, cleanBrand, productKey }).catch((error) => console.error(error));
-await loadCatalogue();
+initShop({ lookupProducts, money, escape }).catch((error) => console.error(error));
+try {
+  state.brands = (await getJson('/api/brands')).brands;
+} catch (error) {
+  console.error(error);
+}
+await render();
 refreshBag();

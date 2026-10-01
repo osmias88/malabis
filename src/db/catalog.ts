@@ -91,6 +91,38 @@ export function splitProductKey(key: string): [string, string] {
   return index < 0 ? ['', ''] : [key.slice(0, index), key.slice(index + 1)];
 }
 
+const PAGE_ROWS = 500;
+
+/**
+ * Every sellable product across all brands, priced in USD. The database
+ * returns at most 1000 rows per request, so each brand is read in pages.
+ */
+export async function loadAllCatalogProducts(): Promise<{ products: CatalogProduct[]; fx: CatalogResult['fx'] }> {
+  const batches = await Promise.all(BRANDS.map(async (brand) => {
+    const rows: Array<Record<string, unknown>> = [];
+    for (let from = 0; ; from += PAGE_ROWS) {
+      const { data, error } = await supabaseAdmin
+        .from('products')
+        .select(PRODUCT_COLUMNS)
+        .eq('brands.key', brand.key)
+        .eq('active', true)
+        .neq('stock_status', 'out_of_stock')
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_ROWS - 1);
+      if (error) throw new Error(`Could not load catalog for ${brand.key}: ${error.message}`);
+      rows.push(...(data ?? []));
+      if (!data || data.length < PAGE_ROWS) break;
+    }
+    return rows;
+  }));
+  const converter = await getUsdConverter();
+  const rows = batches.flat();
+  return {
+    products: prepareProducts(rows, bulkImportDays(rows)).map((product) => convertProduct(product, converter)),
+    fx: { currency: 'USD', source: converter.source, asOf: converter.asOf, pkrPerUsd: converter.rate('USD', 'PKR') },
+  };
+}
+
 export async function getCatalog(brandKey: string | undefined, limit: number): Promise<CatalogResult> {
   const brandKeys = brandKey ? [brandKey] : BRANDS.map((brand) => brand.key);
   const perBrandLimit = brandKey ? limit : Math.min(400, Math.ceil(limit / brandKeys.length));

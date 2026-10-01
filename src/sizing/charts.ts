@@ -57,23 +57,20 @@ function chart(title: unknown, rows: string[][], image: unknown = null): SizeCha
 }
 
 /**
- * Sapphire: the chart is an HTML table on each product page.
+ * Sapphire: the chart is an HTML table on each product page, read by the
+ * scraper while it has the page (see the SFCC adapter), so there is no
+ * separate lookup for it here.
  */
-const sapphire: ChartSource = {
-  key: () => null,
-  async fetch(product) {
-    const html = await (await get(product.url, 'text/html')).text();
-    const $ = cheerio.load(html);
-    const charts: SizeChart[] = [];
-    $('.size-chart table, table').each((_, table) => {
-      const rows = $(table).find('tr').map((__, tr) => [$(tr).find('th,td').map((___, cell) => $(cell).text()).get()]).get() as string[][];
-      if (!/length|chest|shoulder|waist|hip|bust/i.test(rows.flat().join(' '))) return;
-      const result = chart(null, rows);
-      if (result && !charts.some((existing) => JSON.stringify(existing.rows) === JSON.stringify(result.rows))) charts.push(result);
-    });
-    return charts;
-  },
-};
+export function chartsFromPage($: cheerio.CheerioAPI): SizeChart[] {
+  const charts: SizeChart[] = [];
+  $('table').each((_, table) => {
+    const rows = $(table).find('tr').map((__, tr) => [$(tr).find('th,td').map((___, cell) => $(cell).text()).get()]).get() as string[][];
+    if (!/length|chest|shoulder|waist|hip|bust/i.test(rows.flat().join(' '))) return;
+    const result = chart(null, rows);
+    if (result && !charts.some((existing) => JSON.stringify(existing.rows) === JSON.stringify(result.rows))) charts.push(result);
+  });
+  return charts;
+}
 
 /**
  * Ethnic: Smart Size Chart app, keyed by the product's "...-Chartify" tag.
@@ -196,7 +193,6 @@ function sanaSafinaz(baseUrl: string): ChartSource {
 
 export function chartSourceFor(brand: BrandConfig): ChartSource | null {
   switch (brand.key) {
-    case 'sapphire-pk': return sapphire;
     case 'ethnic-pk': return ethnic;
     case 'cambridge-pk': return cambridge;
     case 'afrozeh-pk': return afrozeh;
