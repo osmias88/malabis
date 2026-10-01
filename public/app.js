@@ -387,6 +387,27 @@ function formatProductDescription(raw) {
   }
   if (currentItems.length || currentHeader) sections.push({ header: currentHeader, items: currentItems });
 
+  // Some stores (e.g. Cambridge) put each label and its value on separate
+  // lines ("Fit", "Traditional Fit", ...). Short alternating lines become pairs,
+  // and repeated pairs are dropped.
+  for (const section of sections) {
+    const texts = section.items;
+    const pairable = texts.length >= 4 && texts.length % 2 === 0
+      && texts.every((item) => item.type === 'text' && item.text.length <= 40)
+      && texts.filter((_, index) => index % 2 === 0).every((item) => item.text.split(/s+/).length <= 3);
+    if (!pairable) continue;
+    const seen = new Set();
+    section.items = [];
+    for (let index = 0; index < texts.length; index += 2) {
+      const key = texts[index].text;
+      const val = texts[index + 1].text;
+      const id = `${key.toLowerCase()}|${val.toLowerCase()}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      section.items.push({ type: 'keyval', key: titleCase(key), val });
+    }
+  }
+
   let html = '<div class="product-description-formatted">';
   for (const section of sections) {
     html += '<div class="desc-block">';
