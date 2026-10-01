@@ -34,6 +34,19 @@ let snapshot: Snapshot | null = null;
 let loading: Promise<Snapshot> | null = null;
 
 const cleanBrand = (name: string) => name.replace(/ PK$/, '');
+
+/**
+ * A variant's colour: the stored one, or the non-size part of a title like
+ * "Black / L" (Shopify stores often name options generically).
+ */
+export function colorOf(variant: { color: string | null; title: string; size: string | null; rawSize: string | null }): string | null {
+  if (variant.color) return variant.color;
+  const parts = variant.title.split(' / ').map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const sizes = [variant.size, variant.rawSize].filter(Boolean).map((value) => String(value).toLowerCase());
+  const rest = parts.filter((part) => !sizes.includes(part.toLowerCase()));
+  return rest.length && rest.length < parts.length ? rest.join(' / ') : null;
+}
 const isUsefulSize = (size: string | null): size is string => Boolean(size) && size !== 'Default' && !/(?:\bML\b|METERS?|\bPIECE\b)/i.test(size ?? '');
 
 function sizeSort(left: string, right: string): number {
@@ -207,8 +220,14 @@ export async function productDetail(key: string) {
     priceMax: product.priceMax,
     deliveryFee: product.deliveryFee,
     sizeCharts: product.sizeCharts,
-    variants: product.variants.map(({ externalId, title, size, price, compareAtPrice, available }) => ({
-      externalId, title, size, price, compareAtPrice, available,
+    variants: product.variants.map((variant) => ({
+      externalId: variant.externalId,
+      title: variant.title,
+      size: variant.size,
+      color: colorOf(variant),
+      price: variant.price,
+      compareAtPrice: variant.compareAtPrice,
+      available: variant.available,
     })),
   };
 }
@@ -224,7 +243,9 @@ export async function lookupProducts(keys: string[]) {
       title: entry.title,
       brandName: cleanBrand(entry.product.brandName),
       image: entry.product.images[0]?.url ?? null,
-      variants: entry.product.variants.map(({ externalId, title, size, price, available }) => ({ externalId, title, size, price, available })),
+      variants: entry.product.variants.map((variant) => ({
+        externalId: variant.externalId, title: variant.title, size: variant.size, color: colorOf(variant), price: variant.price, available: variant.available,
+      })),
     }];
   });
 }

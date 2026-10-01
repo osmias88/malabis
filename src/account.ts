@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { User } from '@supabase/supabase-js';
 import { createLogger } from './core/logger.js';
+import { colorOf } from './catalog/store.js';
 import { getProductsByKeys } from './db/catalog.js';
 import { supabaseAdmin } from './db/supabase.js';
 
@@ -226,7 +227,8 @@ async function placeOrder(user: User, body: Record<string, unknown>) {
       variant_external_id: variant.externalId,
       title: product.usd.title,
       brand_name: product.usd.brandName.replace(/ PK$/, ''),
-      size: variant.size ?? variant.title,
+      // Colour and size together, e.g. "Black / L", so the right piece is bought.
+      size: [colorOf(variant), variant.size].filter(Boolean).join(' / ') || variant.title,
       image_url: product.usd.images[0]?.url ?? null,
       product_url: product.usd.url,
       quantity: line.quantity,

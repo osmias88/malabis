@@ -239,7 +239,7 @@ export function addToBag(product, variant) {
     snapshot: {
       title: product.title,
       brand: product.brandName,
-      size: variant.size ?? variant.title,
+      size: [variant.color, variant.size].filter(Boolean).join(' / ') || variant.title,
       image: product.images[0]?.url ?? null,
       price: variant.price.amount,
     },

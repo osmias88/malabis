@@ -282,15 +282,6 @@ function productCard(card) {
   </article>`;
 }
 
-// Prices include the brand's delivery charge within Pakistan (added by the server).
-function deliveryNote(product) {
-  if (!product.deliveryFee) return '';
-  const text = product.deliveryFee.amount > 0
-    ? `Includes ${money(product.deliveryFee)} delivery within Pakistan`
-    : 'Includes free delivery within Pakistan';
-  return `<p class="detail-delivery">${text}</p>`;
-}
-
 /* ---------- Product detail ---------- */
 
 const details = new Map();
@@ -308,9 +299,6 @@ async function openDetail(key) {
   }
 
   const images = product.images.length ? product.images : [{ url: '', alt: product.title }];
-  const sizes = product.variants.map((variant) => `
-    <button type="button" class="size-option" data-variant="${escape(variant.externalId)}" ${variant.available ? '' : 'disabled'}
-      aria-pressed="false" aria-label="Size ${escape(variant.size ?? variant.title)}${variant.available ? '' : ', sold out'}">${escape(variant.size ?? variant.title)}</button>`).join('');
   const brand = product.brandName;
 
   dom.drawerBody.innerHTML = `
@@ -341,10 +329,13 @@ async function openDetail(key) {
         <p class="eyebrow">${escape(brand)} · ${escape(product.section)}</p>
         <h2 id="drawer-title">${escape(product.title)}</h2>
         <p class="detail-price">${money(product.priceMin)}</p>
-        ${deliveryNote(product)}
         <div class="size-picker">
+          <div id="colour-picker" hidden>
+            <p class="variant-heading">Colour <span id="colour-choice"></span></p>
+            <div class="size-options colour-options" id="colour-options" role="group" aria-label="Choose a colour"></div>
+          </div>
           <p class="variant-heading">Size <span id="size-choice"></span></p>
-          <div class="size-options" role="group" aria-label="Choose a size">${sizes}</div>
+          <div class="size-options" id="size-options" role="group" aria-label="Choose a size"></div>
           ${sizeGuide(product, brand)}
         </div>
         <div class="detail-actions">
@@ -444,6 +435,7 @@ function sizeGuide(product, brand) {
 
 // Highlights the chosen size's column, matching "2-3 YRS" to "2-3Y", "Medium" to "M", etc.
 function highlightSizeColumn(size) {
+  if (size === null) { dom.drawerBody.querySelectorAll('.size-chart .is-chosen').forEach((cell) => cell.classList.remove('is-chosen')); return; }
   const key = (value) => String(value).toUpperCase().replace(/YEARS?|YRS?/g, 'Y').replace(/[^A-Z0-9]/g, '')
     .replace(/^(EXTRA)?SMALL$/, 'S').replace(/^MEDIUM$/, 'M').replace(/^LARGE$/, 'L');
   for (const table of dom.drawerBody.querySelectorAll('.size-chart table')) {
@@ -452,22 +444,66 @@ function highlightSizeColumn(size) {
   }
 }
 
+// Products sold in several colours (e.g. "Black / L") get a colour choice
+// first, then only that colour's sizes.
 function initSizePicker(product) {
   const button = el('add-to-bag');
-  const options = [...dom.drawerBody.querySelectorAll('.size-option')];
+  const sizeBox = el('size-options');
+  const colourBox = el('colour-options');
+  const colours = [...new Set(product.variants.map((variant) => variant.color).filter(Boolean))];
+  const byColour = colours.length > 1;
+  const label = (variant) => variant.size ?? variant.title;
+  let colour = null;
   let chosen = null;
+
+  const reset = (text) => {
+    chosen = null;
+    el('size-choice').textContent = '';
+    highlightSizeColumn(null);
+    button.disabled = true;
+    button.textContent = text;
+  };
+
   const choose = (option) => {
     chosen = product.variants.find((variant) => variant.externalId === option.dataset.variant);
-    options.forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === option)));
-    el('size-choice').textContent = `· ${chosen.size ?? chosen.title}`;
-    highlightSizeColumn(chosen.size ?? chosen.title);
+    sizeBox.querySelectorAll('.size-option').forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === option)));
+    el('size-choice').textContent = `· ${label(chosen)}`;
+    highlightSizeColumn(label(chosen));
     button.disabled = false;
     button.textContent = `Add to bag · ${money(chosen.price)}`;
   };
-  options.forEach((option) => option.addEventListener('click', () => choose(option)));
-  const available = options.filter((option) => !option.disabled);
-  if (available.length === 1) choose(available[0]);
-  if (!available.length) button.textContent = 'Sold out';
+
+  const renderSizes = () => {
+    const variants = byColour ? product.variants.filter((variant) => variant.color === colour) : product.variants;
+    sizeBox.innerHTML = variants.map((variant) => `
+      <button type="button" class="size-option" data-variant="${escape(variant.externalId)}" ${variant.available ? '' : 'disabled'}
+        aria-pressed="false" aria-label="Size ${escape(label(variant))}${variant.available ? '' : ', sold out'}">${escape(label(variant))}</button>`).join('');
+    const options = [...sizeBox.querySelectorAll('.size-option')];
+    options.forEach((option) => option.addEventListener('click', () => choose(option)));
+    const available = options.filter((option) => !option.disabled);
+    reset(available.length ? 'Choose a size' : 'Sold out');
+    if (available.length === 1) choose(available[0]);
+  };
+
+  if (byColour) {
+    el('colour-picker').hidden = false;
+    const inStock = (name) => product.variants.some((variant) => variant.color === name && variant.available);
+    colourBox.innerHTML = colours.map((name) => `
+      <button type="button" class="size-option" data-colour="${escape(name)}" ${inStock(name) ? '' : 'disabled'}
+        aria-pressed="false" aria-label="${escape(name)}${inStock(name) ? '' : ', sold out'}">${escape(name)}</button>`).join('');
+    const pick = (option) => {
+      colour = option.dataset.colour;
+      colourBox.querySelectorAll('.size-option').forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === option)));
+      el('colour-choice').textContent = `· ${colour}`;
+      renderSizes();
+    };
+    colourBox.querySelectorAll('.size-option').forEach((option) => option.addEventListener('click', () => pick(option)));
+    const first = colourBox.querySelector('.size-option:not(:disabled)') ?? colourBox.querySelector('.size-option');
+    if (first) pick(first);
+  } else {
+    renderSizes();
+  }
+
   button.addEventListener('click', () => {
     if (!chosen) return;
     addToBag(product, chosen);
