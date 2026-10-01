@@ -8,6 +8,11 @@ const log = createLogger('sizecharts');
 const RECHECK_DAYS = 7;
 const CONCURRENCY = 3;
 const DELAY_MS = 400;
+const GENTLE_DELAY_MS = 2000;
+const RATE_LIMIT_WAIT_MS = 30_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const isRateLimited = (error: unknown) => /returned 429/.test(String(error));
 
 export interface SizeChartSummary {
   brandKey: string;
@@ -54,10 +59,16 @@ export async function refreshSizeCharts(brand: BrandConfig, { limit = 500, force
 
   // Products that share a chart (same tag) are looked up once.
   const shared = new Map<string, Promise<SizeChart[]>>();
+  // A store that says "too many requests" gets one longer pause and a retry.
+  const fetchChart = (product: ChartProduct) => source.fetch(product).catch(async (error) => {
+    if (!isRateLimited(error)) throw error;
+    await sleep(RATE_LIMIT_WAIT_MS);
+    return source.fetch(product);
+  });
   const lookup = (product: ChartProduct) => {
     const key = source.key(product);
-    if (!key) return source.fetch(product);
-    if (!shared.has(key)) shared.set(key, source.fetch(product));
+    if (!key) return fetchChart(product);
+    if (!shared.has(key)) shared.set(key, fetchChart(product));
     return shared.get(key)!;
   };
 
@@ -78,10 +89,10 @@ export async function refreshSizeCharts(brand: BrandConfig, { limit = 500, force
         summary.failed += 1;
         log.debug(`size chart lookup failed for ${product.handle}`, { error: String(lookupError) });
       }
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      await sleep(source.gentle ? GENTLE_DELAY_MS : DELAY_MS);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, products.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(source.gentle ? 1 : CONCURRENCY, products.length) }, worker));
 
   log.info(`size charts: ${summary.withChart}/${summary.checked} products have one${summary.failed ? `, ${summary.failed} lookups failed` : ''}`, { brand: brand.key });
   return summary;

@@ -27,6 +27,8 @@ export interface ChartSource {
   /** Products sharing a key share a chart, so it is fetched once per run. */
   key(product: ChartProduct): string | null;
   fetch(product: ChartProduct): Promise<SizeChart[]>;
+  /** Stores that rate-limit get one request at a time with a longer pause. */
+  gentle?: boolean;
 }
 
 const USER_AGENT = 'Mozilla/5.0 (compatible; MalabisBot/0.1)';
@@ -174,6 +176,7 @@ function sanaSafinaz(baseUrl: string): ChartSource {
     return [...html.slice(0, index).matchAll(/id="shopify-section-([^"]+)"/g)].pop()?.[1] ?? null;
   };
   return {
+    gentle: true,
     key: () => null,
     async fetch(product) {
       sectionId ??= findSection(product.handle).catch(() => null);
