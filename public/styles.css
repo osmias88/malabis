@@ -10,7 +10,7 @@
   --vermilion: #c2452f;
   --forest: #245c4a;
   --mustard: #d7a629;
-  --rail-width: 248px;
+  --rail-width: 300px;
   --gutter: clamp(16px, 3vw, 40px);
   --font-body: 'DM Sans', system-ui, sans-serif;
   --font-display: 'Fraunces', Georgia, serif;
@@ -79,7 +79,6 @@ img { max-width: 100%; }
   border-radius: 999px;
 }
 
-.rail-open { display: none; }
 
 .hamburger-icon { display: inline-flex; flex-direction: column; gap: 3px; width: 14px; }
 .hamburger-icon span { display: block; height: 2px; background: currentColor; }
@@ -139,23 +138,35 @@ img { max-width: 100%; }
 .audience-tabs a.is-current { color: var(--ink); border-bottom-color: var(--vermilion); }
 
 /* ---------- Shell: brand rail + main ---------- */
-.shell {
-  display: grid;
-  grid-template-columns: var(--rail-width) minmax(0, 1fr);
-  align-items: start;
-}
+/* The brand menu is a drawer on every screen size, opened by the Brands button. */
+.shell { display: block; }
 
 .brand-rail {
-  position: sticky;
-  top: 112px;
-  max-height: calc(100vh - 112px);
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  z-index: 60;
+  width: min(var(--rail-width), 86vw);
   overflow-y: auto;
-  padding: 28px 18px 28px var(--gutter);
-  border-right: 1px solid var(--line);
+  padding: 20px 16px 32px;
+  background: var(--paper);
+  box-shadow: 8px 0 32px rgba(0, 0, 0, .18);
+  transform: translateX(-105%);
+  visibility: hidden;
+  transition: transform .25s ease, visibility 0s linear .25s;
 }
+.brand-rail.is-open { transform: translateX(0); visibility: visible; transition: transform .25s ease; }
 
 .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.rail-close { display: none; }
+.rail-close {
+  display: grid;
+  place-items: center;
+  width: 36px; height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--white);
+  cursor: pointer;
+  font-size: 20px;
+}
 .brand-list { display: grid; gap: 2px; }
 
 .rail-link, .rail-section {
@@ -180,7 +191,7 @@ img { max-width: 100%; }
 .rail-section { padding: 6px 10px; font-size: 14px; color: var(--muted); }
 .rail-section:hover { color: var(--ink); background: var(--soft); }
 .rail-section.is-current { color: var(--ink); font-weight: 600; background: var(--soft); }
-.rail-scrim { display: none; }
+.rail-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(26, 27, 24, .5); }
 
 .main { min-width: 0; padding: 28px var(--gutter) 80px; }
 
@@ -781,34 +792,6 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
 
 @media (max-width: 900px) {
   .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 14px; }
-  .shell { grid-template-columns: minmax(0, 1fr); }
-  .rail-open { display: inline-flex; }
-  .brand-rail {
-    position: fixed;
-    top: 0; bottom: 0; left: 0;
-    z-index: 60;
-    width: min(320px, 86vw);
-    max-height: none;
-    padding: 20px 16px 32px;
-    background: var(--paper);
-    border-right: 0;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, .18);
-    transform: translateX(-105%);
-    transition: transform .25s ease;
-  }
-  .brand-rail.is-open { transform: translateX(0); }
-  .rail-close {
-    display: grid;
-    place-items: center;
-    width: 36px; height: 36px;
-    border: 1px solid var(--line);
-    border-radius: 50%;
-    background: var(--white);
-    cursor: pointer;
-    font-size: 20px;
-  }
-  .rail-scrim { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(26, 27, 24, .5); }
-  .rail-scrim[hidden] { display: none !important; }
 }
 
 @media (max-width: 720px) {
@@ -825,7 +808,6 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
   .search-box { grid-column: 1 / -1; grid-row: 2; height: 40px; }
   .audience-tabs { justify-content: center; gap: 28px; padding: 0 16px; }
   .audience-tabs a { font-size: 12px; padding: 10px 2px 12px; }
-  .brand-rail { top: 0; }
 
   .main { padding: 20px 16px 56px; }
   .brand-strip { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 40%; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scroll-padding-inline: 16px; scrollbar-width: none; }
