@@ -202,10 +202,43 @@ export async function homeRows(perBrand = 4) {
   return { brands, updatedAt: new Date(loadedAt).toISOString() };
 }
 
-/** The brand's page for shoppers outside Pakistan, where the brand has an international store. */
-function shopperUrl(brandKey: string, url: string): string {
+/* ---------- International storefronts ---------- */
+
+const INTERNATIONAL_REFRESH_MS = 6 * 60 * 60 * 1000;
+const international = new Map<string, { handles: Set<string>; loadedAt: number }>();
+
+/**
+ * Handles sold on each brand's international (Shopify) store. Not every
+ * Pakistani product is sold there, so links only switch when it is.
+ */
+async function internationalHandles(host: string): Promise<Set<string>> {
+  const cached = international.get(host);
+  if (cached && Date.now() - cached.loadedAt < INTERNATIONAL_REFRESH_MS) return cached.handles;
+  const handles = new Set<string>();
+  try {
+    for (let page = 1; page <= 60; page += 1) {
+      const response = await fetch(`https://${host}/products.json?limit=250&page=${page}`, {
+        headers: { 'user-agent': 'Mozilla/5.0 (compatible; MalabisBot/0.1)', accept: 'application/json' },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) throw new Error(`${host} returned ${response.status}`);
+      const { products = [] } = await response.json() as { products?: Array<{ handle?: string }> };
+      products.forEach((product) => product.handle && handles.add(product.handle));
+      if (products.length < 250) break;
+    }
+    international.set(host, { handles, loadedAt: Date.now() });
+    log.info(`international store ${host}: ${handles.size} products`);
+  } catch (error) {
+    log.warn(`could not list ${host}; keeping Pakistani links`, { error: String(error) });
+    return cached?.handles ?? new Set();
+  }
+  return handles;
+}
+
+/** The brand's page for shoppers outside Pakistan, when its international store sells the piece. */
+async function shopperUrl(brandKey: string, url: string, handle: string): Promise<string> {
   const host = BRANDS.find((brand) => brand.key === brandKey)?.options?.internationalHost;
-  if (!host) return url;
+  if (!host || !(await internationalHandles(host)).has(handle)) return url;
   const link = new URL(url);
   link.host = host;
   return link.toString();
@@ -222,7 +255,7 @@ export async function productDetail(key: string) {
     brandName: cleanBrand(product.brandName),
     title: entry.title,
     section: entry.section,
-    url: shopperUrl(product.brandKey, product.url),
+    url: await shopperUrl(product.brandKey, product.url, product.handle),
     description: product.description,
     images: product.images,
     priceMin: product.priceMin,
@@ -262,4 +295,7 @@ export async function lookupProducts(keys: string[]) {
 /** Warm the cache at startup so the first visitor doesn't wait. */
 export function warmCatalogue(): void {
   current().catch((error) => log.warn('initial catalogue load failed', { error: String(error) }));
+  for (const brand of BRANDS) {
+    if (brand.options?.internationalHost) void internationalHandles(brand.options.internationalHost);
+  }
 }
