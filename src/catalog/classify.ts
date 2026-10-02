@@ -62,22 +62,32 @@ export function inTab(audience: Audience, tab: Tab): boolean {
   return audience === tab || (audience === 'kids' && (tab === 'girls' || tab === 'boys'));
 }
 
+// Text is lower-cased with hyphens turned into spaces before matching.
 const GARMENTS: Array<[string, RegExp]> = [
   ['Shalwar Kameez', /shalwar|salwar|kameez|pajama suit|pyjama suit|waistcoat suit|kurta pajama/],
-  ['Kurtas & Suits', /kurta|kurti|\d ?piece|\bsuit\b|lawn|pret|anarkali|kaftan/],
-  ['Co-ord Sets', /co-?ord|\bsets?\b|jumpsuit/],
+  // "p2t"/"p3" in Sana Safinaz codes mean a 2- or 3-piece suit.
+  ['Kurtas & Suits', /kurta|kurti|\d ?piece|\bsuit\b|lawn|pret|anarkali|kaftan|angrakha|\d{2}p[23][a-z]?\b/],
+  ['Co-ord Sets', /\bco ?ords?\b|\bsets?\b|jumpsuit|lounge ?wear/],
   ['Dresses', /dress|frock|maxi|gown/],
-  ['Polos & Tees', /polo|t-?shirt|\btees?\b|athleisure/],
-  ['Blazers & Jackets', /blazer|jacket|coat\b|waistcoat/],
+  ['Polos & Tees', /polo|t ?shirt|\btees?\b|athleisure|crew ?neck|\bcrew\b|jersey/],
+  ['Blazers & Jackets', /blazer|jacket|shacket|coat\b|waistcoat/],
   ['Knitwear', /sweater|cardigan|hoodie|sweatshirt|knit/],
   ['Shirts & Tops', /shirt|\btops?\b|blouse|tunic/],
-  ['Bottoms', /trouser|pant|jeans|denim|skirt|shorts|culotte|palazzo|bottom|chino|jogger/],
+  ['Bottoms', /trouser|pant|jeans|denim|skirt|shorts|culotte|palazzo|bottom|chino|jogger|cargo|sharara|gharara|churidar|tights|leggings|capri/],
+];
+
+// When the name says nothing (e.g. "Hydrangea"), the store's own tags usually do.
+const TAG_GARMENTS: Array<[string, RegExp]> = [
+  ['Kurtas & Suits', /\bpret\b|ready to wear|\brtw\b/],
+  ['Shirts & Tops', /\bwest(ern)?\b/],
 ];
 
 export function garmentOf(product: Classifiable): string {
   const text = [product.title, product.productType, product.handle].filter(Boolean).join(' ').toLowerCase().replace(/[-_]+/g, ' ');
   for (const [label, pattern] of GARMENTS) if (pattern.test(text)) return label;
-  return 'More';
+  const tags = (product.tags ?? []).join(' ').toLowerCase().replace(/[-_/]+/g, ' ');
+  for (const [label, pattern] of TAG_GARMENTS) if (pattern.test(tags)) return label;
+  return 'Other';
 }
 
 // Brands whose own product types are their collection lines (Lawn, Pret, Fusion…).
