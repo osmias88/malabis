@@ -2,7 +2,7 @@ import { BRANDS } from '../config/brands.js';
 import { createLogger } from '../core/logger.js';
 import type { Money } from '../core/types.js';
 import { getSizeCharts, latestCatalogueChange, loadAllCatalogProducts, type CatalogProduct, type CatalogResult } from '../db/catalog.js';
-import { audienceOf, brandSectionOf, discountOf, displayTitle, garmentOf, inTab, type Audience, type Tab } from './classify.js';
+import { audienceOf, brandSectionOf, discountOf, displayTitle, garmentOf, inTab, titleCase, type Audience, type Tab } from './classify.js';
 
 const log = createLogger('catalog');
 
@@ -22,6 +22,10 @@ interface Entry {
   discount: number;
   sizes: string[];
   search: string;
+  /** The piece's single colour, when it has one (e.g. "Light Blue"). */
+  colour: string | null;
+  /** Same style in other colours: these entries are shown as one card. */
+  group: Entry[] | null;
 }
 
 interface Snapshot {
@@ -71,6 +75,68 @@ function sizeSort(left: string, right: string): number {
   return left.localeCompare(right, undefined, { numeric: true });
 }
 
+/* ---------- Same style, several colours ---------- */
+
+// Some stores list each colour as its own product (Cambridge: six "Basic Fancy
+// Shalwar Suit"s in Light Blue, Maroon, ...). Those are shown as one card
+// with a colour choice. Pieces only group when they share brand and name
+// and each has its own single, different colour, so different prints that
+// share a generic name ("Printed Lawn Suit") stay separate.
+const MAX_GROUP = 20;
+const COLOUR_SUFFIX = /\s+-\s+([a-z][a-z /&]*)$/i;
+
+function productColour(product: CatalogProduct): string | null {
+  const colours = [...new Set(product.variants.map((variant) => colorOf(variant)).filter(Boolean))] as string[];
+  const raw = colours.length === 1 ? colours[0]! : product.title.match(COLOUR_SUFFIX)?.[1] ?? null;
+  return raw ? titleCase(raw.replace(/[-_]+/g, ' ').trim()) : null;
+}
+
+const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+function styleKey(product: CatalogProduct, colour: string | null): string {
+  // When the product address ends in its colour, the rest of the address is
+  // the style ("...-wwsf2617-light-blue" → "...-wwsf2617"). Cambridge reuses one
+  // name for many styles, so the address separates them where the name can't.
+  const colourSlug = colour ? slug(colour) : '';
+  if (colourSlug && product.handle.toLowerCase().endsWith(`-${colourSlug}`)) {
+    return `${product.brandKey}|handle:${product.handle.toLowerCase().slice(0, -colourSlug.length - 1)}`;
+  }
+  const title = product.title.trim().toLowerCase()
+    .replace(COLOUR_SUFFIX, '')
+    // Ethnic codes are style/collection/colour: "(E3325/108/304)" → "(E3325/108)".
+    .replace(/\(([a-z]?\d+[/-]\d+)[/-]\d+\)\s*$/i, '($1)')
+    .replace(/\s+/g, ' ');
+  return `${product.brandKey}|${title}`;
+}
+
+function groupColours(entries: Entry[]): void {
+  const byStyle = new Map<string, Entry[]>();
+  for (const entry of entries) {
+    if (!entry.colour) continue;
+    const key = styleKey(entry.product, entry.colour);
+    byStyle.set(key, [...(byStyle.get(key) ?? []), entry]);
+  }
+  for (const members of byStyle.values()) {
+    const distinct = new Set(members.map((entry) => entry.colour!.toLowerCase()));
+    if (members.length < 2 || members.length > MAX_GROUP || distinct.size !== members.length) continue;
+    members.sort((a, b) => a.colour!.localeCompare(b.colour!));
+    for (const entry of members) entry.group = members;
+  }
+}
+
+/** One card per style: the first piece of each colour group in the given order. */
+function oneCardPerStyle(entries: Entry[]): Entry[] {
+  const seen = new Set<Entry[]>();
+  return entries.filter((entry) => {
+    if (!entry.group) return true;
+    if (seen.has(entry.group)) return false;
+    seen.add(entry.group);
+    return true;
+  });
+}
+
+const cardId = (entry: Entry) => (entry.group ? entry.group[0]!.key : entry.key);
+
 async function load(): Promise<Snapshot> {
   const started = Date.now();
   const { products, fx } = await loadAllCatalogProducts();
@@ -88,8 +154,11 @@ async function load(): Promise<Snapshot> {
       discount: discountOf(product),
       sizes: [...new Set(product.variants.filter((variant) => variant.available).map((variant) => variant.size).filter(isUsefulSize))],
       search: [title, product.title, product.brandName, product.productType, garment, ...product.tags].filter(Boolean).join(' ').toLowerCase(),
+      colour: productColour(product),
+      group: null,
     };
   });
+  groupColours(entries);
   log.info(`catalogue loaded: ${entries.length} products in ${Date.now() - started}ms`);
   return { entries, byKey: new Map(entries.map((entry) => [entry.key, entry])), fx, loadedAt: Date.now(), checkedAt: Date.now(), version: null };
 }
@@ -135,6 +204,8 @@ export interface Card {
   discount: number;
   isNew: boolean;
   images: string[];
+  /** How many colours this style comes in (1 when it is not part of a colour group). */
+  colours: number;
 }
 
 function card(entry: Entry): Card {
@@ -150,6 +221,7 @@ function card(entry: Entry): Card {
     discount: entry.discount,
     isNew: Date.now() - entry.listed < NEW_DAYS * 86_400_000,
     images: product.images.slice(0, 2).map((image) => image.url),
+    colours: entry.group?.length ?? 1,
   };
 }
 
@@ -181,20 +253,28 @@ export async function queryProducts(query: ProductQuery) {
     && (ignore.size || !size || entry.sizes.includes(size))
     && (!term || entry.search.includes(term));
 
-  const brands: Record<string, number> = {};
-  const sections = new Map<string, number>();
+  // Counts are of cards: a style in six colours counts once.
+  const brandCards = new Map<string, Set<string>>();
+  const sectionCards = new Map<string, Set<string>>();
+  const add = (counts: Map<string, Set<string>>, name: string, entry: Entry) => {
+    if (!counts.has(name)) counts.set(name, new Set());
+    counts.get(name)!.add(cardId(entry));
+  };
   const sizes = new Set<string>();
-  const results: Entry[] = [];
+  let results: Entry[] = [];
   for (const entry of entries) {
-    if (matches(entry, { brand: true, section: true, size: true })) brands[entry.product.brandKey] = (brands[entry.product.brandKey] ?? 0) + 1;
-    if (brand && matches(entry, { section: true })) sections.set(entry.section, (sections.get(entry.section) ?? 0) + 1);
+    if (matches(entry, { brand: true, section: true, size: true })) add(brandCards, entry.product.brandKey, entry);
+    if (brand && matches(entry, { section: true })) add(sectionCards, entry.section, entry);
     if (matches(entry, { size: true })) entry.sizes.forEach((value) => sizes.add(value));
     if (matches(entry)) results.push(entry);
   }
+  const brands = Object.fromEntries([...brandCards].map(([name, ids]) => [name, ids.size]));
+  const sections = new Map([...sectionCards].map(([name, ids]) => [name, ids.size] as const));
 
   if (query.sort === 'price-asc') results.sort((a, b) => a.product.priceMin.amount - b.product.priceMin.amount);
   else if (query.sort === 'price-desc') results.sort((a, b) => b.product.priceMin.amount - a.product.priceMin.amount);
   else results.sort((a, b) => b.listed - a.listed);
+  results = oneCardPerStyle(results);
 
   const offset = Math.max(0, Math.floor(query.offset ?? 0));
   const limit = Math.min(MAX_PAGE, Math.max(0, Math.floor(query.limit ?? 48)));
@@ -215,13 +295,13 @@ export async function queryProducts(query: ProductQuery) {
 /** Home page: each brand's newest pieces and a cover picture. */
 export async function homeRows(perBrand = 4) {
   const { entries, loadedAt } = await current();
-  const byNewest = [...entries].filter((entry) => entry.product.images.length).sort((a, b) => b.listed - a.listed);
+  const byNewest = oneCardPerStyle([...entries].filter((entry) => entry.product.images.length).sort((a, b) => b.listed - a.listed));
   const brands = BRANDS.map((brand) => {
     const items = byNewest.filter((entry) => entry.product.brandKey === brand.key);
     return {
       key: brand.key,
       name: cleanBrand(brand.name),
-      count: entries.filter((entry) => entry.product.brandKey === brand.key).length,
+      count: new Set(entries.filter((entry) => entry.product.brandKey === brand.key).map(cardId)).size,
       cover: items[0]?.product.images[0]?.url ?? null,
       items: items.slice(0, perBrand).map(card),
     };
@@ -282,6 +362,14 @@ export async function productDetail(key: string) {
     brandName: cleanBrand(product.brandName),
     title: entry.title,
     section: entry.section,
+    colour: entry.colour,
+    // The same style in other colours, each its own piece with its own photos and sizes.
+    colourOptions: (entry.group ?? []).map((member) => ({
+      key: member.key,
+      colour: member.colour,
+      image: member.product.images[0]?.url ?? null,
+      inStock: member.product.variants.some((variant) => variant.available),
+    })),
     url: await shopperUrl(product.brandKey, product.url, product.handle),
     description: product.description,
     images: product.images,

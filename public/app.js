@@ -278,6 +278,7 @@ function productCard(card) {
       <p class="product-brand">${escape(card.brandName)}</p>
       <h3>${escape(card.title)}</h3>
       <p class="product-price"><span>${price}</span>${card.compareAt && card.discount >= 0.05 ? `<del>${money(card.compareAt)}</del>` : ''}</p>
+      ${card.colours > 1 ? `<p class="product-colours">${card.colours} colours</p>` : ''}
     </div>
   </article>`;
 }
@@ -521,6 +522,17 @@ function initSizePicker(product) {
     colourBox.querySelectorAll('.size-option').forEach((option) => option.addEventListener('click', () => pick(option)));
     const first = colourBox.querySelector('.size-option:not(:disabled)') ?? colourBox.querySelector('.size-option');
     if (first) pick(first);
+  } else if (product.colourOptions?.length > 1) {
+    // Stores that list each colour as its own piece: each colour opens that piece.
+    el('colour-picker').hidden = false;
+    el('colour-choice').textContent = product.colour ? `· ${product.colour}` : '';
+    colourBox.innerHTML = product.colourOptions.map((option) => `
+      <button type="button" class="size-option" data-colour-key="${escape(option.key)}" ${option.inStock ? '' : 'disabled'}
+        aria-pressed="${option.key === product.key}" aria-label="${escape(option.colour)}${option.inStock ? '' : ', sold out'}">${escape(option.colour)}</button>`).join('');
+    colourBox.querySelectorAll('[data-colour-key]').forEach((option) => option.addEventListener('click', () => {
+      if (option.dataset.colourKey !== product.key) openDetail(option.dataset.colourKey);
+    }));
+    renderSizes();
   } else {
     renderSizes();
   }

@@ -344,6 +344,7 @@ img { max-width: 100%; }
 .product-card h3 { margin: 0 0 4px; font: 500 16px/1.3 var(--font-display); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .product-price { display: flex; gap: 8px; align-items: baseline; margin: 0; font-size: 14px; font-weight: 600; }
 .product-price del { color: var(--muted); font-size: 12px; font-weight: 400; }
+.product-colours { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 
 .more-wrap { display: flex; justify-content: center; margin-top: 36px; }
 .more-button { padding: 12px 26px; border: 1px solid var(--ink); border-radius: 999px; background: transparent; cursor: pointer; font-weight: 600; }
