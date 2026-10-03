@@ -92,6 +92,12 @@ img { max-width: 100%; }
   border-radius: 999px;
 }
 
+/* The brand menu button is the ☰ icon alone on every screen size (its
+   aria-label says "Browse brands"). */
+.rail-open { justify-content: center; width: 38px; height: 38px; padding: 0; }
+.rail-open:hover { border-color: var(--ink); }
+.rail-open-label { display: none; }
+
 
 .hamburger-icon { display: inline-flex; flex-direction: column; gap: 3px; width: 14px; }
 .hamburger-icon span { display: block; height: 2px; background: currentColor; }
@@ -826,8 +832,7 @@ button.size-link { width: 100%; background: transparent; cursor: pointer; font-f
   .header-left { display: contents; }
   .wordmark { font-size: 18px; }
   .wordmark-name { letter-spacing: .14em; margin-right: -.14em; }
-  .rail-open { grid-column: 1; grid-row: 1; justify-self: start; justify-content: center; width: 38px; height: 38px; padding: 0; }
-  .rail-open-label { display: none; }
+  .rail-open { grid-column: 1; grid-row: 1; justify-self: start; }
   .header-actions { grid-column: 3; grid-row: 1; }
   .account-button { height: 38px; padding: 0 12px; }
   .header-actions { gap: 8px; }
