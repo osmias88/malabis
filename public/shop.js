@@ -8,7 +8,7 @@ const MAX_QUANTITY = 10;
 
 const STATUS_LABEL = {
   awaiting_payment: 'Awaiting payment',
-  authorized: 'Payment authorised',
+  authorized: 'Payment authorized',
   placed_with_brand: 'Ordered from the brand',
   captured: 'Payment taken',
   received: 'At our Lahore studio',

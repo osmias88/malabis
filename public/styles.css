@@ -57,7 +57,7 @@ img { max-width: 100%; }
 
 .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
-/* Logo: MALABIS with a small, letter-spaced STUDIO centred beneath it
+/* Logo: MALABIS with a small, letter-spaced STUDIO centered beneath it
    (negative right margins cancel the trailing letter-spacing). */
 .wordmark {
   display: inline-flex;

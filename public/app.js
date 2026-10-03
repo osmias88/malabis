@@ -278,7 +278,7 @@ function productCard(card) {
       <p class="product-brand">${escape(card.brandName)}</p>
       <h3>${escape(card.title)}</h3>
       <p class="product-price"><span>${price}</span>${card.compareAt && card.discount >= 0.05 ? `<del>${money(card.compareAt)}</del>` : ''}</p>
-      ${card.colours > 1 ? `<p class="product-colours">${card.colours} colours</p>` : ''}
+      ${card.colours > 1 ? `<p class="product-colours">${card.colours} colors</p>` : ''}
     </div>
   </article>`;
 }
@@ -332,8 +332,8 @@ async function openDetail(key) {
         <p class="detail-price">${money(product.priceMin)}</p>
         <div class="size-picker">
           <div id="colour-picker" hidden>
-            <p class="variant-heading">Colour <span id="colour-choice"></span></p>
-            <div class="size-options colour-options" id="colour-options" role="group" aria-label="Choose a colour"></div>
+            <p class="variant-heading">Color <span id="colour-choice"></span></p>
+            <div class="size-options colour-options" id="colour-options" role="group" aria-label="Choose a color"></div>
           </div>
           <p class="variant-heading">Size <span id="size-choice"></span></p>
           <div class="size-options" id="size-options" role="group" aria-label="Choose a size"></div>
