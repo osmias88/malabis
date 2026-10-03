@@ -1,12 +1,13 @@
 import { BRANDS } from '../config/brands.js';
 import { createLogger } from '../core/logger.js';
 import type { Money } from '../core/types.js';
-import { loadAllCatalogProducts, type CatalogProduct, type CatalogResult } from '../db/catalog.js';
+import { getSizeCharts, latestCatalogueChange, loadAllCatalogProducts, type CatalogProduct, type CatalogResult } from '../db/catalog.js';
 import { audienceOf, brandSectionOf, discountOf, displayTitle, garmentOf, inTab, type Audience, type Tab } from './classify.js';
 
 const log = createLogger('catalog');
 
-const REFRESH_MS = 10 * 60 * 1000;
+const CHECK_MS = 10 * 60 * 1000;
+const MIN_RELOAD_MS = 2 * 60 * 60 * 1000;
 const NEW_DAYS = 14;
 const MAX_PAGE = 96;
 
@@ -28,6 +29,9 @@ interface Snapshot {
   byKey: Map<string, Entry>;
   fx: CatalogResult['fx'];
   loadedAt: number;
+  checkedAt: number;
+  /** Finish time of the scraper run this copy reflects. */
+  version: string | null;
 }
 
 let snapshot: Snapshot | null = null;
@@ -87,16 +91,29 @@ async function load(): Promise<Snapshot> {
     };
   });
   log.info(`catalogue loaded: ${entries.length} products in ${Date.now() - started}ms`);
-  return { entries, byKey: new Map(entries.map((entry) => [entry.key, entry])), fx, loadedAt: Date.now() };
+  return { entries, byKey: new Map(entries.map((entry) => [entry.key, entry])), fx, loadedAt: Date.now(), checkedAt: Date.now(), version: null };
 }
 
-/** The current catalogue; a stale copy is served while a fresh one loads in the background. */
+/**
+ * The current catalogue; a stale copy is served while a fresh one loads in
+ * the background. A full reload is ~15 MB of database egress, so every
+ * CHECK_MS the server only asks when the scraper last finished, and reloads
+ * when that has changed, at most once per MIN_RELOAD_MS.
+ */
 async function current(): Promise<Snapshot> {
-  if (snapshot && Date.now() - snapshot.loadedAt < REFRESH_MS) return snapshot;
+  if (snapshot && Date.now() - snapshot.checkedAt < CHECK_MS) return snapshot;
   if (!loading) {
-    loading = load()
-      .then((fresh) => { snapshot = fresh; return fresh; })
-      .finally(() => { loading = null; });
+    loading = (async () => {
+      const version = await latestCatalogueChange().catch(() => null);
+      if (snapshot && (version === snapshot.version || Date.now() - snapshot.loadedAt < MIN_RELOAD_MS)) {
+        snapshot.checkedAt = Date.now();
+        return snapshot;
+      }
+      const fresh = await load();
+      fresh.version = version;
+      snapshot = fresh;
+      return fresh;
+    })().finally(() => { loading = null; });
   }
   if (snapshot) {
     loading.catch((error) => log.warn('catalogue refresh failed; serving the previous copy', { error: String(error) }));
@@ -271,7 +288,7 @@ export async function productDetail(key: string) {
     priceMin: product.priceMin,
     priceMax: product.priceMax,
     deliveryFee: product.deliveryFee,
-    sizeCharts: product.sizeCharts,
+    sizeCharts: await getSizeCharts(product.brandKey, product.externalId).catch(() => null),
     variants: product.variants.map((variant) => ({
       externalId: variant.externalId,
       title: variant.title,

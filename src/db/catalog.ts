@@ -93,6 +93,44 @@ export function splitProductKey(key: string): [string, string] {
 
 const PAGE_ROWS = 500;
 
+// The whole catalogue is reloaded into the server's memory, so this list
+// leaves out what only the product view needs (size charts, loaded per piece)
+// and what nothing uses (SKU, inventory counts). Every byte here counts
+// towards Supabase egress on each reload.
+const CATALOGUE_COLUMNS = `
+  external_id, handle, title, description, url, product_type, vendor,
+  tags, images, source, price_min, price_max, currency, stock_status, scraped_at, source_updated_at,
+  published_at, first_seen_at,
+  active,
+  brands!inner(key, name, delivery_amount, delivery_free_over),
+  variants(external_id, title, size, raw_size, color, price, compare_at_price, available, position)
+`;
+
+/** One product's size charts, for the product view. */
+export async function getSizeCharts(brandKey: string, externalId: string): Promise<SizeChart[] | null> {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select('size_chart, brands!inner(key)')
+    .eq('brands.key', brandKey)
+    .eq('external_id', externalId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not load size chart: ${error.message}`);
+  return Array.isArray(data?.size_chart) ? (data.size_chart as SizeChart[]) : null;
+}
+
+/** When the scraper last finished a run; the catalogue only needs reloading after one. */
+export async function latestCatalogueChange(): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('scrape_runs')
+    .select('finished_at')
+    .not('finished_at', 'is', null)
+    .order('finished_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Could not check for catalogue changes: ${error.message}`);
+  return data?.finished_at ? String(data.finished_at) : null;
+}
+
 /**
  * Every sellable product across all brands, priced in USD. The database
  * returns at most 1000 rows per request, so each brand is read in pages.
@@ -103,7 +141,7 @@ export async function loadAllCatalogProducts(): Promise<{ products: CatalogProdu
     for (let from = 0; ; from += PAGE_ROWS) {
       const { data, error } = await supabaseAdmin
         .from('products')
-        .select(PRODUCT_COLUMNS)
+        .select(CATALOGUE_COLUMNS)
         .eq('brands.key', brand.key)
         .eq('active', true)
         .neq('stock_status', 'out_of_stock')
@@ -255,7 +293,8 @@ function toProduct(row: Record<string, unknown>, importDays: Set<string>): Catal
         ? null
         : { amount: Number(variant.compare_at_price), currency },
       available: Boolean(variant.available),
-      inventoryQuantity: variant.inventory_quantity === null
+      // Not loaded for the in-memory catalogue (undefined), so check loosely.
+      inventoryQuantity: variant.inventory_quantity == null
         ? null
         : Number(variant.inventory_quantity),
       position: Number(variant.position),

@@ -1,7 +1,7 @@
 import type { BrandConfig } from '../adapters/types.js';
 import { createLogger } from '../core/logger.js';
 import { scrapeBrand, type RunOptions } from '../core/pipeline.js';
-import { StockStatus, type Product, type ScrapeResult } from '../core/types.js';
+import type { Product, ScrapeResult } from '../core/types.js';
 import { supabaseAdmin } from './supabase.js';
 import { refreshDeliveryRate } from './delivery.js';
 import { refreshSizeCharts } from './sizeCharts.js';
@@ -168,7 +168,7 @@ async function persistProducts(brandId: string, products: Product[]): Promise<vo
 async function persistStock(brandId: string, products: Product[]): Promise<void> {
   const storedProducts = await selectAll((from, to) => supabaseAdmin
     .from('products')
-    .select('id, handle, variants(id, external_id)')
+    .select('id, handle, variants(id, external_id, available)')
     .eq('brand_id', brandId)
     .order('id')
     .range(from, to)).catch((error) => { throw new Error(`Could not load stock targets: ${String(error)}`); });
@@ -177,8 +177,8 @@ async function persistStock(brandId: string, products: Product[]): Promise<void>
     String(row.handle),
     {
       id: String(row.id),
-      variants: new Map(((row.variants ?? []) as Array<{ id: string; external_id: string }>).map((variant) => [
-        String(variant.external_id), String(variant.id),
+      variants: new Map(((row.variants ?? []) as Array<{ id: string; external_id: string; available: boolean | null }>).map((variant) => [
+        String(variant.external_id), { id: String(variant.id), available: variant.available },
       ])),
     },
   ]));
@@ -194,15 +194,12 @@ async function persistStock(brandId: string, products: Product[]): Promise<void>
     if (!stored) continue;
     if (product.scrapedAt > seenAt) seenAt = product.scrapedAt;
     productsByStatus.set(product.stockStatus, [...(productsByStatus.get(product.stockStatus) ?? []), stored.id]);
-    stockHistory.push({
-      product_id: stored.id,
-      available: product.stockStatus === StockStatus.Unknown ? null : product.stockStatus !== StockStatus.OutOfStock,
-      captured_at: product.scrapedAt,
-    });
 
+    // Only sizes whose availability changed are written and recorded.
     for (const variant of product.variants) {
-      const variantId = stored.variants.get(variant.externalId);
-      if (!variantId) continue;
+      const storedVariant = stored.variants.get(variant.externalId);
+      if (!storedVariant || storedVariant.available === variant.available) continue;
+      const variantId = storedVariant.id;
       variantsByAvailability.set(variant.available, [...(variantsByAvailability.get(variant.available) ?? []), variantId]);
       stockHistory.push({
         product_id: stored.id,
@@ -241,6 +238,8 @@ async function persistStock(brandId: string, products: Product[]): Promise<void>
 }
 
 async function persistVariants(items: Array<{ productId: string; product: Product }>): Promise<void> {
+  // Read what was stored before overwriting it, so history only records changes.
+  const previous = await loadStoredVariants([...new Set(items.map(({ productId }) => productId))]);
   const variants = items.flatMap(({ productId, product }) => product.variants.map((variant) => ({
     product_id: productId,
     external_id: variant.externalId,
@@ -261,23 +260,47 @@ async function persistVariants(items: Array<{ productId: string; product: Produc
   if (variantError) throw databaseError('Could not batch upsert variants', variantError);
 
   const ids = new Map((variantRows ?? []).map((row) => [`${row.product_id}:${row.external_id}`, String(row.id)]));
+  // History records changes only: a new size, or a price or availability
+  // that differs from what was stored. (Recording every size on every run
+  // grew to millions of rows that nothing reads.)
   const prices = [];
   const stocks = [];
   for (const { productId, product } of items) {
     const capturedAt = product.scrapedAt;
-    prices.push({ product_id: productId, price: product.priceMin.amount, currency: product.currency, captured_at: capturedAt });
-    stocks.push({ product_id: productId, available: product.stockStatus === StockStatus.Unknown ? null : product.stockStatus !== StockStatus.OutOfStock, captured_at: capturedAt });
     for (const variant of product.variants) {
       const variantId = ids.get(`${productId}:${variant.externalId}`);
       if (!variantId) continue;
-      prices.push({ product_id: productId, variant_id: variantId, price: variant.price.amount, currency: variant.price.currency, captured_at: capturedAt });
-      stocks.push({ product_id: productId, variant_id: variantId, available: variant.available, inventory_quantity: variant.inventoryQuantity, captured_at: capturedAt });
+      const before = previous.get(`${productId}:${variant.externalId}`);
+      if (!before || before.price !== variant.price.amount) {
+        prices.push({ product_id: productId, variant_id: variantId, price: variant.price.amount, currency: variant.price.currency, captured_at: capturedAt });
+      }
+      if (!before || before.available !== variant.available) {
+        stocks.push({ product_id: productId, variant_id: variantId, available: variant.available, inventory_quantity: variant.inventoryQuantity, captured_at: capturedAt });
+      }
     }
   }
-  const { error: priceError } = await supabaseAdmin.from('price_history').insert(prices);
-  if (priceError) throw new Error(`Could not batch record prices: ${priceError.message}`);
-  const { error: stockError } = await supabaseAdmin.from('stock_history').insert(stocks);
-  if (stockError) throw new Error(`Could not batch record stock: ${stockError.message}`);
+  for (const batch of chunk(prices, 500)) {
+    const { error: priceError } = await supabaseAdmin.from('price_history').insert(batch);
+    if (priceError) throw new Error(`Could not batch record prices: ${priceError.message}`);
+  }
+  for (const batch of chunk(stocks, 500)) {
+    const { error: stockError } = await supabaseAdmin.from('stock_history').insert(batch);
+    if (stockError) throw new Error(`Could not batch record stock: ${stockError.message}`);
+  }
+}
+
+/** Stored price and availability per "productId:variantExternalId", to detect changes. */
+async function loadStoredVariants(productIds: string[]): Promise<Map<string, { price: number; available: boolean | null }>> {
+  const rows = await selectAll((from, to) => supabaseAdmin
+    .from('variants')
+    .select('product_id, external_id, price, available')
+    .in('product_id', productIds)
+    .order('id')
+    .range(from, to)).catch((error) => { throw new Error(`Could not load stored variants: ${String(error)}`); });
+  return new Map(rows.map((row) => [`${row.product_id}:${row.external_id}`, {
+    price: Number(row.price),
+    available: row.available === null ? null : Boolean(row.available),
+  }]));
 }
 
 function chunk<T>(items: T[], size: number): T[][] {

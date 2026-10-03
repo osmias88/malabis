@@ -2,7 +2,7 @@ name: Refresh product catalog
 
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '17 */3 * * *'
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
